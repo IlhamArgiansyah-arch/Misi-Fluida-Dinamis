@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Misi Fluida Dinamis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* Tata letak: meja lab (simulasi + data) di kiri, panduan misi bertahap di kanan */
+:root{
+  --bg:#eef3f6; --surface:#ffffff; --surface2:#e3ecf1; --ink:#12303f; --muted:#587080; --line:#c9d7df;
+  --water:#2a9fd0; --deep:#0f6c98; --pipe:#7d8f9a; --accent:#e2611b; --accent-ink:#ffffff;
+  --good:#1c8a55; --good-bg:#dff3e8; --bad:#c23a2e; --bad-bg:#fae3e0; --warn-bg:#fdf0d8;
+  --f-display:"Sora","Segoe UI",system-ui,sans-serif; --f-body:"Source Sans 3","Segoe UI",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0d1c25; --surface:#152a36; --surface2:#1d3847; --ink:#e4eff5; --muted:#93acba; --line:#2d4b5c;
+  --water:#45b6e6; --deep:#1f86b5; --pipe:#8fa3ae; --accent:#ff8a4a; --accent-ink:#1a0d04;
+  --good:#5fd09a; --good-bg:#143a2a; --bad:#ff8d82; --bad-bg:#472220; --warn-bg:#40331a; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#0d1c25; --surface:#152a36; --surface2:#1d3847; --ink:#e4eff5; --muted:#93acba; --line:#2d4b5c;
+  --water:#45b6e6; --deep:#1f86b5; --pipe:#8fa3ae; --accent:#ff8a4a; --accent-ink:#1a0d04;
+  --good:#5fd09a; --good-bg:#143a2a; --bad:#ff8d82; --bad-bg:#472220; --warn-bg:#40331a; color-scheme:dark;}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance}
+button,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1320px;margin:0 auto;padding:16px 20px 40px;display:flex;flex-direction:column;gap:14px}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+header h1{font-size:22px;letter-spacing:-.01em}
+header h1 span{color:var(--deep)}
+.who{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:14px;color:var(--muted)}
+.who input{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:5px 8px;width:170px}
+.who input#kelas{width:90px}
+nav{display:flex;gap:6px;flex-wrap:wrap;border-bottom:2px solid var(--line)}
+nav a{display:flex;align-items:center;gap:8px;padding:9px 13px;text-decoration:none;color:var(--muted);font-weight:600;font-size:14.5px;border-radius:8px 8px 0 0;margin-bottom:-2px;border-bottom:2px solid transparent}
+nav a .n{font-family:var(--f-display);font-size:12px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--surface2);color:var(--ink)}
+nav a.on{color:var(--ink);background:var(--surface);border-bottom-color:var(--accent)}
+nav a.done .n{background:var(--good);color:#fff}
+nav a.lock{opacity:.55}
+.lab{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:900px){.lab{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px}
+.bench{display:flex;flex-direction:column;gap:12px}
+canvas{width:100%;aspect-ratio:16/9;display:block;border-radius:8px;background:var(--surface2)}
+.ctrl{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px 18px}
+.ctrl label{display:flex;flex-direction:column;font-size:14px;color:var(--muted);gap:2px}
+.ctrl label b{color:var(--ink);font-variant-numeric:tabular-nums}
+.ctrl input[type=range]{accent-color:var(--deep);width:100%}
+.ctrl.off{opacity:.45;pointer-events:none}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:8px;padding:9px 16px;font-weight:700;cursor:pointer}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);font-weight:600}
+.tblwrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px;font-variant-numeric:tabular-nums}
+th,td{border-bottom:1px solid var(--line);padding:5px 8px;text-align:right;white-space:nowrap}
+th{font-weight:600;color:var(--muted);font-size:12.5px}
+td:first-child,th:first-child{text-align:left}
+th.new,td.new{background:var(--warn-bg)}
+.empty{color:var(--muted);font-size:14px;padding:6px 0}
+.steps{display:flex;gap:4px;margin-bottom:12px}
+.steps button{flex:1;border:0;background:var(--surface2);color:var(--muted);padding:6px 2px;font-size:12px;font-weight:600;border-radius:6px;cursor:pointer}
+.steps button.cur{background:var(--deep);color:#fff}
+.steps button.past{background:var(--good-bg);color:var(--good)}
+.steps button:disabled{cursor:default;opacity:.6}
+.guide h2{font-size:19px;margin-bottom:8px}
+.guide p{margin:0 0 10px;max-width:62ch}
+.guide ol,.guide ul{margin:0 0 10px;padding-left:20px}
+.q{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:10px}
+.q p{margin-bottom:8px}
+.opts{display:flex;flex-direction:column;gap:6px}
+.opt{text-align:left;background:var(--surface2);border:1px solid transparent;border-radius:6px;padding:7px 10px;cursor:pointer}
+.opt.sel{border-color:var(--deep);background:var(--surface)}
+.opt.ok{background:var(--good-bg);border-color:var(--good)}
+.opt.no{background:var(--bad-bg);border-color:var(--bad)}
+.fb{font-size:14.5px;padding:7px 10px;border-radius:6px;margin-top:8px}
+.fb.ok{background:var(--good-bg);color:var(--good)}
+.fb.no{background:var(--bad-bg);color:var(--bad)}
+.fb.hint{background:var(--warn-bg);color:var(--ink)}
+.eq{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:44px;border:2px dashed var(--line);border-radius:8px;padding:6px 10px;margin-bottom:8px;font-family:var(--f-display);font-size:17px}
+.eq.ok{border-style:solid;border-color:var(--good);background:var(--good-bg)}
+.chip{background:var(--surface2);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer;font-family:var(--f-display);font-size:15px}
+.bank{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.concept{border-left:4px solid var(--deep);background:var(--surface2);padding:10px 12px;border-radius:0 8px 8px 0;margin-bottom:10px}
+.concept .f{font-family:var(--f-display);font-size:19px;margin-bottom:4px}
+textarea{width:100%;min-height:74px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px}
+.ans{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ans input{width:130px;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+.pts{font-size:13px;color:var(--muted);margin-left:auto}
+.finish{background:var(--good-bg);border:1px solid var(--good);border-radius:10px;padding:14px}
+.finish .stars{font-size:28px;color:var(--accent);letter-spacing:4px}
+.code{font-family:var(--f-display);font-size:20px;background:var(--surface);border:1px dashed var(--good);border-radius:6px;padding:3px 10px;display:inline-block}
+.lockbox{max-width:520px;margin:30px auto}
+.lockbox input{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:180px;text-transform:uppercase}
+.note h2{font-size:18px;margin:0 0 6px}
+.note .card{margin-bottom:12px}
+.tag{display:inline-block;font-size:12px;font-weight:700;border-radius:20px;padding:2px 10px;background:var(--surface2);color:var(--muted)}
+.tag.ok{background:var(--good-bg);color:var(--good)}
+small.m{color:var(--muted)}
+.who a{color:var(--deep)}
+.gf{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 16px;margin-bottom:12px}
+.gf label{display:flex;flex-direction:column;gap:3px;font-size:14px;color:var(--muted)}
+.gf input{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 9px;color:var(--ink)}
+@media print{header .who a,nav,.btn,#gform,#cmsg,#actmsg{display:none!important}body{background:#fff;color:#000}.card{border:0;padding:6px 0;break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Misi <span>Fluida Dinamis</span></h1>
+    <div class="who">
+      <span id="grp"></span><a href="#catatan">Ubah data kelompok</a><span id="total"></span>
+    </div>
+  </header>
+  <nav id="nav"></nav>
+  <main id="view"></main>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+"use strict";
+const G=10, STAGES=["Fenomena","Prediksi","Eksperimen","Temukan Pola","Rumuskan","Tantangan"];
+const f=(x,d=2)=>Number(x).toLocaleString("id-ID",{maximumFractionDigits:d});
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const sortEq=(a,b)=>a.slice().sort().join("|")===b.slice().sort().join("|");
+const pick=(list,s)=>list[s%list.length];
+
+/* ---------- Definisi misi ---------- */
+const M=[
+{ id:1, title:"Debit",
+  story:["Dua keran dipakai mengisi ember 10 liter. Keran pertama memenuhi ember dalam 20 detik, keran kedua butuh 50 detik.","Air di keduanya sama-sama mengalir. Besaran apa yang membedakan kedua aliran itu, dan apa saja yang menentukannya? Di misi ini kamu menjadi teknisi yang menyelidikinya."],
+  pred:{q:"Luas penampang pipa diperbesar 2 kali, kecepatan air tetap. Waktu untuk memenuhi ember yang sama akan…",o:["tetap sama","menjadi setengahnya","menjadi dua kali lebih lama"],a:1},
+  ctrl:[{k:"A",l:"Luas penampang pipa A",u:"cm²",min:2,max:10,step:1,v:4},{k:"v",l:"Kecepatan air v",u:"m/s",min:0.5,max:3,step:0.5,v:1},{k:"V",l:"Volume wadah V",u:"L",min:5,max:20,step:5,v:10}],
+  act:"Buka keran",
+  cols:[{k:"A",l:"A (cm²)"},{k:"v",l:"v (m/s)"},{k:"V",l:"V (L)"},{k:"t",l:"t (s)"},{k:"Q",l:"V/t (L/s)",from:3},{k:"Av",l:"A×v (L/s)*",from:3}],
+  colNote:"*A×v sudah dikonversi: 1 cm² × 1 m/s = 10⁻⁴ m³/s = 0,1 L/s.",
+  how:["Atur luas penampang, kecepatan air, dan volume wadah.","Tekan Buka keran. Stopwatch berjalan sampai wadah penuh, lalu data tercatat otomatis.","Kumpulkan minimal 4 data. Ubah A dengan v tetap, lalu ubah v dengan A tetap."],
+  req:r=>r.length<4?"Butuh minimal 4 data (sekarang "+r.length+").":new Set(r.map(x=>x.A)).size<2?"Coba minimal 2 nilai A yang berbeda.":new Set(r.map(x=>x.v)).size<2?"Coba minimal 2 nilai v yang berbeda.":null,
+  pat:[
+   {q:"Lihat kolom V/t. Besaran ini menyatakan…",o:["volume air yang mengalir tiap detik","jarak yang ditempuh air tiap detik","massa air di dalam wadah"],a:0,h:"Perhatikan satuannya: liter per sekon.",e:"V/t adalah volume fluida yang lewat tiap satuan waktu. Besaran ini disebut debit (Q)."},
+   {q:"Saat A dibuat 2 kali lebih besar dan v tetap, nilai V/t…",o:["tetap","menjadi 2 kali","menjadi setengah"],a:1,h:"Bandingkan dua baris data dengan v sama tetapi A berbeda.",e:"Debit sebanding dengan luas penampang."},
+   {q:"Bandingkan kolom V/t dengan kolom A×v pada setiap baris.",o:["Selalu sama","V/t selalu lebih besar","Tidak ada hubungan"],a:0,h:"Baca kedua kolom berwarna pada baris yang sama.",e:"Debit dapat dihitung dari V/t maupun dari A×v."}],
+  bld:[{lhs:"Q =",tip:"Debit dari volume dan waktu",tok:["V","t","A","v","×","÷","+"],ok:a=>a.join("")==="V÷t"},
+       {lhs:"Q =",tip:"Debit dari penampang dan kecepatan",tok:["V","t","A","v","×","÷","+"],ok:a=>["A×v","v×A"].includes(a.join(""))}],
+  concept:{f:"Q = V / t = A · v",t:"Debit (Q) adalah volume fluida yang mengalir tiap satuan waktu. Satuan SI: m³/s. Ingat 1 L = 10⁻³ m³ dan 1 cm² = 10⁻⁴ m²."},
+  qs:[
+   s=>{const [V,t]=pick([[120,4],[180,5],[96,4]],s),a=V/(t*60);return{t:`Sebuah bak ${V} liter terisi penuh dalam ${t} menit. Berapa debit keran?`,u:"L/s",a,h:"Q = V/t. Ubah menit ke sekon dulu.",s:`Q = ${V} L / ${t*60} s = ${f(a)} L/s`}},
+   s=>{const [d,v]=pick([[4,2],[2,3],[6,1]],s),A=Math.PI*d*d/4,a=A*v*0.1;return{t:`Air mengalir dengan kecepatan ${f(v)} m/s dalam pipa berdiameter ${d} cm. Berapa debitnya? (π = 3,14)`,u:"L/s",a,h:"Hitung A = πr² dalam m², lalu Q = A·v. 1 m³/s = 1000 L/s.",s:`A = π(${d/2} cm)² = ${f(A)} cm² = ${f(A)}×10⁻⁴ m². Q = A·v = ${f(a/1000,5)} m³/s = ${f(a)} L/s`}},
+   s=>{const [A,v,V]=pick([[5,2,1.2],[4,2.5,0.9],[8,1.5,1.8]],s),Q=A*v*1e-4,a=V/Q/60;return{t:`Selang berpenampang ${A} cm² mengalirkan air dengan kecepatan ${f(v)} m/s. Berapa lama mengisi kolam ${f(V)} m³?`,u:"menit",a,h:"Cari Q = A·v dalam m³/s, lalu t = V/Q.",s:`Q = ${A}×10⁻⁴ × ${f(v)} = ${f(Q,5)} m³/s. t = ${f(V)} / ${f(Q,5)} = ${f(V/Q,0)} s = ${f(a)} menit`}}]
+},
+{ id:2, title:"Asas Kontinuitas",
+  story:["Saat menyiram tanaman, kamu memencet ujung selang dan air memancar lebih jauh. Padahal keran tidak kamu putar sama sekali.","Mengapa menyempitkan lubang membuat air lebih cepat? Selidiki dengan pipa yang penampangnya bisa diubah."],
+  pred:{q:"Air mengalir dari pipa besar ke pipa yang luas penampangnya setengahnya. Kecepatan air di pipa kecil akan…",o:["tetap","menjadi setengahnya","menjadi 2 kali","menjadi 4 kali"],a:2},
+  ctrl:[{k:"A1",l:"Luas penampang 1 (A₁)",u:"cm²",min:4,max:20,step:2,v:16},{k:"v1",l:"Kecepatan di penampang 1 (v₁)",u:"m/s",min:0.5,max:3,step:0.5,v:1},{k:"A2",l:"Luas penampang 2 (A₂)",u:"cm²",min:2,max:20,step:2,v:8}],
+  act:"Catat data",
+  cols:[{k:"A1",l:"A₁ (cm²)"},{k:"v1",l:"v₁ (m/s)"},{k:"A2",l:"A₂ (cm²)"},{k:"v2",l:"v₂ (m/s)"},{k:"Q1",l:"A₁·v₁",from:3},{k:"Q2",l:"A₂·v₂",from:3}],
+  colNote:"A·v dalam cm²·m/s.",
+  how:["Ubah A₂ dan amati gerak partikel air serta pembacaan v₂.","Tekan Catat data untuk setiap susunan.","Kumpulkan minimal 4 data dengan minimal 3 nilai A₂ berbeda. Coba juga A₂ lebih besar dari A₁."],
+  req:r=>r.length<4?"Butuh minimal 4 data (sekarang "+r.length+").":new Set(r.map(x=>x.A2)).size<3?"Coba minimal 3 nilai A₂ yang berbeda.":null,
+  pat:[
+   {q:"Saat pipa menyempit (A₂ lebih kecil dari A₁), kecepatan v₂…",o:["lebih besar dari v₁","lebih kecil dari v₁","sama dengan v₁"],a:0,h:"Lihat baris dengan A₂ < A₁.",e:"Di penampang yang lebih sempit, fluida bergerak lebih cepat."},
+   {q:"Bandingkan kolom A₁·v₁ dan A₂·v₂ di setiap baris.",o:["Selalu sama","Lebih besar di pipa sempit","Lebih besar di pipa lebar"],a:0,h:"Baca kedua kolom berwarna.",e:"Hasil kali A·v sama di setiap penampang."},
+   {q:"A·v adalah debit. Mengapa debit di kedua penampang harus sama?",o:["Air yang masuk tiap detik harus sama dengan yang keluar, karena air tidak menumpuk dan tidak dapat dimampatkan","Karena tekanan di kedua ujung pipa sama","Karena pipa terbuat dari bahan yang sama"],a:0,h:"Bayangkan jika air masuk lebih banyak daripada yang keluar.",e:"Fluida ideal tidak termampatkan, sehingga debit di sepanjang pipa tetap."}],
+  bld:[{lhs:"",tip:"Susun persamaan yang menghubungkan kedua penampang",tok:["A₁","A₂","v₁","v₂","×","÷","+","="],ok:a=>{const s=a.join("").split("=");return s.length===2&&sortEq(s.map(x=>x.split("×").sort().join("×")),["A₁×v₁","A₂×v₂"])}}],
+  concept:{f:"A₁ · v₁ = A₂ · v₂",t:"Asas kontinuitas: debit fluida ideal sama di setiap penampang. Penampang mengecil, kecepatan membesar. Untuk pipa bulat A = πr², sehingga v₂/v₁ = (d₁/d₂)²."},
+  qs:[
+   s=>{const [A1,v1,A2]=pick([[10,2,4],[12,1.5,3],[8,3,6]],s),a=A1*v1/A2;return{t:`Air mengalir ${f(v1)} m/s di pipa berpenampang ${A1} cm², lalu masuk ke pipa ${A2} cm². Berapa kecepatannya di pipa kedua?`,u:"m/s",a,h:"A₁v₁ = A₂v₂.",s:`v₂ = A₁v₁/A₂ = ${A1}×${f(v1)}/${A2} = ${f(a)} m/s`}},
+   s=>{const [d1,d2,v1]=pick([[6,2,1],[8,4,1.5],[10,5,0.5]],s),a=v1*d1*d1/(d2*d2);return{t:`Pipa berdiameter ${d1} cm menyempit menjadi ${d2} cm. Kecepatan air di bagian besar ${f(v1)} m/s. Berapa kecepatan di bagian kecil?`,u:"m/s",a,h:"Luas sebanding dengan kuadrat diameter: v₂ = v₁(d₁/d₂)².",s:`v₂ = ${f(v1)} × (${d1}/${d2})² = ${f(a)} m/s`}},
+   s=>{const [v1,v2,A1]=pick([[1.5,6,8],[2,5,10],[1,4,12]],s),a=A1*v1/v2;return{t:`Kecepatan air di pipa besar (${A1} cm²) adalah ${f(v1)} m/s. Agar keluar dari nosel dengan kecepatan ${f(v2)} m/s, berapa luas penampang nosel?`,u:"cm²",a,h:"A₂ = A₁v₁/v₂.",s:`A₂ = ${A1}×${f(v1)}/${f(v2)} = ${f(a)} cm²`}}]
+},
+{ id:3, title:"Persamaan Bernoulli",
+  story:["Pegang selembar kertas di depan bibir, lalu tiup bagian atasnya. Kertas justru terangkat ke arah aliran udara.","Udara yang bergerak cepat ternyata mengubah tekanan. Selidiki hubungan tekanan, kecepatan, dan ketinggian pada pipa berisi air yang dilengkapi alat ukur tekanan."],
+  pred:{q:"Air mengalir di pipa mendatar yang menyempit. Di bagian sempit air lebih cepat. Tekanan air di bagian sempit akan…",o:["lebih besar","lebih kecil","sama saja"],a:1},
+  ctrl:[{k:"v1",l:"Kecepatan di titik 1 (v₁)",u:"m/s",min:1,max:4,step:0.5,v:2},{k:"A2",l:"Luas penampang titik 2 (A₂)",u:"cm²",min:4,max:20,step:2,v:10},{k:"h2",l:"Ketinggian titik 2 (h₂)",u:"m",min:0,max:3,step:0.5,v:0}],
+  act:"Catat data",
+  cols:[{k:"v1",l:"v₁"},{k:"P1",l:"P₁"},{k:"v2",l:"v₂"},{k:"h2",l:"h₂"},{k:"P2",l:"P₂"},{k:"K1",l:"½ρv₁²",from:3},{k:"K2",l:"½ρv₂²",from:3},{k:"U2",l:"ρgh₂",from:3},{k:"E1",l:"Jumlah 1",from:3},{k:"E2",l:"Jumlah 2",from:3}],
+  colNote:"v dalam m/s, h dalam m, tekanan dan suku lainnya dalam kPa. A₁ = 10 cm², h₁ = 0, ρ air = 1000 kg/m³, g = 10 m/s². Jumlah = P + ½ρv² + ρgh.",
+  how:["Tahap A: biarkan h₂ = 0, ubah A₂, dan catat tekanan P₂.","Tahap B: buat A₂ = 10 cm² (sama dengan A₁), naikkan h₂, dan catat lagi.","Kumpulkan minimal 5 data: minimal 2 nilai A₂ dan 2 nilai h₂ yang berbeda."],
+  req:r=>r.length<5?"Butuh minimal 5 data (sekarang "+r.length+").":new Set(r.map(x=>x.A2)).size<2?"Coba minimal 2 nilai A₂.":new Set(r.map(x=>x.h2)).size<2?"Coba minimal 2 nilai h₂.":null,
+  pat:[
+   {q:"Pada pipa mendatar, di titik yang kecepatannya lebih besar, tekanannya…",o:["lebih kecil","lebih besar","sama"],a:0,h:"Lihat baris dengan h₂ = 0 dan v₂ > v₁. Bandingkan P₂ dengan P₁.",e:"Kecepatan naik, tekanan turun."},
+   {q:"Pada pipa berpenampang sama, saat titik 2 dinaikkan, tekanan P₂…",o:["turun","naik","tetap"],a:0,h:"Lihat baris dengan v₂ = v₁ dan h₂ > 0.",e:"Semakin tinggi posisi, semakin kecil tekanan."},
+   {q:"Bandingkan kolom Jumlah 1 dan Jumlah 2 (P + ½ρv² + ρgh).",o:["Selalu sama di kedua titik","Lebih besar di titik 2","Lebih besar di titik 1"],a:0,h:"Baca dua kolom terakhir pada tiap baris.",e:"Jumlah ketiga suku tetap di sepanjang aliran."}],
+  bld:[{lhs:"",tip:"Susun persamaan yang berlaku di setiap titik aliran",tok:["P","½ρv²","ρgh","½ρv","ρg","+","×","=","konstan"],ok:a=>{const s=a.join(" ").split(" = ");if(s.length!==2)return false;const [x,y]=s[0]==="konstan"?[s[1],s[0]]:s;return y==="konstan"&&sortEq(x.split(" + "),["P","½ρv²","ρgh"])}}],
+  concept:{f:"P + ½ρv² + ρgh = konstan",t:"Persamaan Bernoulli untuk fluida ideal. Antara dua titik: P₁ + ½ρv₁² + ρgh₁ = P₂ + ½ρv₂² + ρgh₂. Ini bentuk hukum kekekalan energi untuk fluida mengalir."},
+  qs:[
+   s=>{const [v1,P1,v2]=pick([[2,120,6],[1,150,5],[3,200,7]],s),a=P1-0.5*(v2*v2-v1*v1);return{t:`Air mengalir di pipa mendatar. Di titik 1: v = ${v1} m/s dan P = ${P1} kPa. Di titik 2 yang lebih sempit v = ${v2} m/s. Berapa tekanan di titik 2? (ρ = 1000 kg/m³)`,u:"kPa",a,h:"h sama, jadi P₂ = P₁ + ½ρ(v₁² − v₂²).",s:`P₂ = ${P1} kPa + ½·1000·(${v1*v1} − ${v2*v2}) Pa = ${P1} − ${f(0.5*(v2*v2-v1*v1))} = ${f(a)} kPa`}},
+   s=>{const [h,P1]=pick([[3,180],[2,140],[4,250]],s),a=P1-10*h;return{t:`Air mengalir naik lewat pipa berpenampang sama ke lantai yang ${h} m lebih tinggi. Tekanan di bawah ${P1} kPa. Berapa tekanan di atas? (g = 10 m/s²)`,u:"kPa",a,h:"v sama, jadi P₂ = P₁ − ρgh.",s:`P₂ = ${P1} kPa − 1000·10·${h} Pa = ${P1} − ${10*h} = ${f(a)} kPa`}},
+   s=>{const [A1,A2,v1,h2,P1]=pick([[12,4,1,2,200],[10,5,2,1,160],[9,3,1,3,220]],s),v2=A1*v1/A2,a=P1-0.5*(v2*v2-v1*v1)-10*h2;return{t:`Pipa berpenampang ${A1} cm² (v = ${v1} m/s, P = ${P1} kPa) menyempit menjadi ${A2} cm² sambil naik ${h2} m. Berapa tekanan di ujung atas? (ρ = 1000 kg/m³, g = 10 m/s²)`,u:"kPa",a,h:"Cari v₂ dengan asas kontinuitas, lalu pakai persamaan Bernoulli lengkap.",s:`v₂ = ${A1}·${v1}/${A2} = ${f(v2)} m/s. P₂ = ${P1} − ½(${f(v2*v2)} − ${v1*v1}) − ${10*h2} = ${f(a)} kPa`}}]
+},
+{ id:4, title:"Gaya Angkat Pesawat",
+  story:["Pesawat penumpang bermassa puluhan ton dapat terangkat dari landasan tanpa didorong ke atas oleh mesinnya.","Bentuk dan kemiringan sayap membuat udara di atas sayap mengalir lebih cepat daripada di bawahnya. Di terowongan angin ini kamu mengatur kedua kecepatan itu dan menyelidiki gaya yang muncul."],
+  pred:{q:"Udara di atas sayap mengalir lebih cepat daripada di bawah sayap. Menurut Bernoulli, tekanan udara di atas sayap…",o:["lebih besar daripada di bawah","lebih kecil daripada di bawah","sama dengan di bawah"],a:1},
+  ctrl:[{k:"v1",l:"Kecepatan udara di atas sayap (v₁)",u:"m/s",min:40,max:110,step:5,v:70},{k:"v2",l:"Kecepatan udara di bawah sayap (v₂)",u:"m/s",min:40,max:90,step:5,v:60},{k:"A",l:"Luas sayap (A)",u:"m²",min:20,max:120,step:10,v:60},{k:"m",l:"Massa pesawat",u:"ton",min:2,max:20,step:1,v:6}],
+  act:"Catat data",
+  cols:[{k:"v1",l:"v₁ (m/s)"},{k:"v2",l:"v₂ (m/s)"},{k:"A",l:"A (m²)"},{k:"dP",l:"P₂−P₁ (Pa)"},{k:"F",l:"F angkat (kN)"},{k:"W",l:"Berat (kN)"},{k:"st",l:"Gerak"},{k:"dv",l:"v₁²−v₂²",from:3},{k:"r",l:"ΔP/(v₁²−v₂²)",from:3}],
+  colNote:"ρ udara = 1,2 kg/m³, g = 10 m/s². P₂ = tekanan di bawah sayap, P₁ = tekanan di atas sayap.",
+  how:["Ubah v₁ dan v₂, amati selisih tekanan dan gaya angkat.","Ubah luas sayap dengan kecepatan tetap.","Kumpulkan minimal 5 data. Harus ada minimal satu keadaan pesawat Naik dan satu keadaan Turun."],
+  req:r=>r.length<5?"Butuh minimal 5 data (sekarang "+r.length+").":!r.some(x=>x.st==="Naik")?"Belum ada data dengan pesawat Naik.":!r.some(x=>x.st==="Turun")?"Belum ada data dengan pesawat Turun.":null,
+  pat:[
+   {q:"Lihat kolom terakhir: (P₂−P₁) dibagi (v₁²−v₂²).",o:["Selalu 0,6, yaitu ½ × massa jenis udara","Berubah-ubah tanpa pola","Selalu sama dengan luas sayap"],a:0,h:"ρ udara = 1,2 kg/m³. Berapa setengahnya?",e:"P₂ − P₁ = ½ρ(v₁² − v₂²). Ini persamaan Bernoulli dengan ketinggian yang hampir sama."},
+   {q:"Saat luas sayap dibuat 2 kali dengan kecepatan tetap, gaya angkat…",o:["menjadi 2 kali","tetap","menjadi 4 kali"],a:0,h:"Gaya = tekanan × luas.",e:"F = (P₂ − P₁) · A."},
+   {q:"Pesawat bergerak naik ketika…",o:["gaya angkat lebih besar daripada berat","gaya angkat sama dengan berat","v₁ lebih kecil dari v₂"],a:0,h:"Bandingkan kolom F angkat dan Berat pada baris Naik.",e:"F > w naik, F = w terbang mendatar, F < w turun."}],
+  bld:[{lhs:"F =",tip:"Susun rumus gaya angkat sayap",tok:["½ρ","(v₁² − v₂²)","(v₁ − v₂)","(v₁² + v₂²)","A","×","÷"],ok:a=>!a.includes("÷")&&sortEq(a.filter(x=>x!=="×"),["½ρ","(v₁² − v₂²)","A"])}],
+  concept:{f:"F = ½ρ (v₁² − v₂²) A",t:"v₁ kecepatan udara di atas sayap, v₂ di bawah sayap, A luas sayap. Udara lebih cepat di atas, tekanan di atas lebih kecil, dan selisih tekanan mendorong sayap ke atas. Terbang mendatar: F = m·g."},
+  qs:[
+   s=>{const [v1,v2,A]=pick([[60,50,40],[70,60,50],[50,40,30]],s),a=0.6*(v1*v1-v2*v2)*A;return{t:`Udara mengalir ${v1} m/s di atas sayap dan ${v2} m/s di bawah sayap. Luas sayap ${A} m². Berapa gaya angkatnya? (ρ udara = 1,2 kg/m³)`,u:"N",a,h:"F = ½ρ(v₁² − v₂²)A.",s:`F = ½·1,2·(${v1*v1} − ${v2*v2})·${A} = ${f(a)} N`}},
+   s=>{const [v1,v2,A]=pick([[80,70,50],[90,80,40],[100,90,60]],s),a=0.6*(v1*v1-v2*v2)*A/10;return{t:`Pesawat terbang mendatar. Kecepatan udara di atas sayap ${v1} m/s, di bawah ${v2} m/s, luas sayap ${A} m². Berapa massa pesawat? (ρ = 1,2 kg/m³, g = 10 m/s²)`,u:"kg",a,h:"Terbang mendatar berarti F = m·g.",s:`F = ½·1,2·(${v1*v1} − ${v2*v2})·${A} = ${f(a*10)} N. m = F/g = ${f(a)} kg`}},
+   s=>{const [m,A,v2]=pick([[3000,50,60],[2400,40,50],[5400,60,70]],s),a=Math.sqrt(v2*v2+m*10/(0.6*A));return{t:`Pesawat ${m} kg dengan luas sayap ${A} m² terbang mendatar. Kecepatan udara di bawah sayap ${v2} m/s. Berapa kecepatan udara di atas sayap? (ρ = 1,2 kg/m³, g = 10 m/s²)`,u:"m/s",a,h:"m·g = ½ρ(v₁² − v₂²)A, lalu selesaikan untuk v₁.",s:`v₁² = v₂² + 2mg/(ρA) = ${v2*v2} + ${f(m*10/(0.6*A))} = ${f(a*a)}. v₁ = ${f(a)} m/s`}}]
+},
+{ id:5, title:"Teorema Torricelli",
+  story:["Sebuah tangki air bocor di tiga tempat: dekat permukaan, di tengah, dan dekat dasar. Ketiga pancaran jatuh di jarak yang berbeda.","Lubang mana yang menyembur paling cepat? Lubang mana yang pancarannya jatuh paling jauh? Jawabannya ternyata tidak sama."],
+  pred:{q:"Tangki berdiri di lantai. Agar pancaran air jatuh paling jauh dari tangki, lubang sebaiknya dibuat…",o:["dekat permukaan air","tepat di tengah ketinggian air","dekat dasar tangki"],a:1},
+  ctrl:[{k:"H",l:"Tinggi permukaan air dari lantai (H)",u:"m",min:0.5,max:2,step:0.1,v:2},{k:"y",l:"Tinggi lubang dari lantai (y)",u:"m",min:0.1,max:1.9,step:0.05,v:0.5}],
+  act:"Catat data",
+  cols:[{k:"H",l:"H (m)"},{k:"y",l:"y (m)"},{k:"h",l:"h = H−y (m)"},{k:"v",l:"v (m/s)"},{k:"x",l:"x (m)"},{k:"v2",l:"v²",from:3},{k:"gh",l:"2gh",from:3}],
+  colNote:"h = kedalaman lubang di bawah permukaan air, x = jarak jatuh pancaran. g = 10 m/s². Permukaan air dijaga tetap oleh pompa.",
+  how:["Biarkan H = 2 m. Geser lubang dari dekat dasar sampai dekat permukaan.","Catat kecepatan semburan v dan jarak jatuh x untuk tiap posisi.","Kumpulkan minimal 5 data dengan minimal 4 posisi lubang berbeda. Cari posisi dengan x terbesar."],
+  req:r=>r.length<5?"Butuh minimal 5 data (sekarang "+r.length+").":new Set(r.map(x=>x.y)).size<4?"Coba minimal 4 posisi lubang berbeda.":null,
+  pat:[
+   {q:"Semakin dalam lubang di bawah permukaan air (h makin besar), kecepatan semburan…",o:["makin besar","makin kecil","tetap"],a:0,h:"Urutkan data menurut h dan lihat kolom v.",e:"Kecepatan semburan hanya bergantung pada kedalaman lubang."},
+   {q:"Bandingkan kolom v² dengan 2gh.",o:["Selalu sama","v² selalu lebih besar","Tidak berhubungan"],a:0,h:"Baca dua kolom berwarna pada tiap baris.",e:"v² = 2gh. Sama seperti benda jatuh bebas dari ketinggian h."},
+   {q:"Untuk H tetap, pancaran jatuh paling jauh saat lubang berada…",o:["di tengah ketinggian air (y = ½H)","sedekat mungkin dengan dasar","sedekat mungkin dengan permukaan"],a:0,h:"Dengan H = 2 m coba y = 0,5 m; 1,0 m; 1,5 m dan bandingkan x.",e:"Lubang bawah menyembur cepat tetapi cepat sampai ke lantai. Lubang atas lama di udara tetapi lambat. Di tengah, hasil kalinya terbesar: x = 2√(h·y)."}],
+  bld:[{lhs:"v =",tip:"Susun rumus kecepatan semburan",tok:["√(","2","g","h","H","½","×",")"],ok:a=>a[0]==="√("&&a[a.length-1]===")"&&sortEq(a.slice(1,-1).filter(x=>x!=="×"),["2","g","h"])}],
+  concept:{f:"v = √(2gh)",t:"Teorema Torricelli, turunan persamaan Bernoulli untuk tangki terbuka. h adalah kedalaman lubang dari permukaan. Waktu jatuh t = √(2y/g) dan jarak jatuh x = v·t = 2√(h·y)."},
+  qs:[
+   s=>{const h=pick([0.8,1.25,0.45],s),a=Math.sqrt(20*h);return{t:`Sebuah tangki berlubang kecil ${f(h)} m di bawah permukaan air. Berapa kecepatan air keluar dari lubang? (g = 10 m/s²)`,u:"m/s",a,h:"v = √(2gh).",s:`v = √(2·10·${f(h)}) = √${f(20*h)} = ${f(a)} m/s`}},
+   s=>{const [H,y]=pick([[1.25,0.8],[2.05,1.25],[1.7,0.45]],s),h=H-y,v=Math.sqrt(20*h),t=Math.sqrt(2*y/10),a=v*t;return{t:`Permukaan air tangki ${f(H)} m di atas lantai. Lubang berada ${f(y)} m di atas lantai. Berapa jarak mendatar jatuhnya pancaran air? (g = 10 m/s²)`,u:"m",a,h:"h = H − y. Cari v = √(2gh), waktu jatuh t = √(2y/g), lalu x = v·t.",s:`h = ${f(h)} m, v = ${f(v)} m/s, t = √(2·${f(y)}/10) = ${f(t)} s, x = v·t = ${f(a)} m`}},
+   s=>{const [A,h]=pick([[2,1.25],[5,0.8],[4,0.45]],s),v=Math.sqrt(20*h),a=A*v*0.1;return{t:`Lubang seluas ${A} cm² berada ${f(h)} m di bawah permukaan air tangki. Berapa debit air yang bocor? (g = 10 m/s²)`,u:"L/s",a,h:"Gabungkan v = √(2gh) dengan Q = A·v.",s:`v = ${f(v)} m/s. Q = ${A}×10⁻⁴ × ${f(v)} = ${f(a/1000,5)} m³/s = ${f(a)} L/s`}}]
+},
+{ id:6, title:"Venturimeter",
+  story:["Petugas PDAM perlu tahu kecepatan air di dalam pipa tertutup tanpa membongkar pipanya. Mereka memasang pipa yang menyempit di tengah dan dua tabung tegak di atasnya.","Alat ini disebut venturimeter. Selidiki bagaimana selisih tinggi air di kedua tabung bisa memberi tahu kecepatan aliran."],
+  pred:{q:"Pada venturimeter, permukaan air di tabung yang berada di atas bagian pipa sempit akan…",o:["lebih tinggi daripada tabung di bagian lebar","lebih rendah daripada tabung di bagian lebar","sama tinggi"],a:1},
+  ctrl:[{k:"A1",l:"Luas penampang lebar (A₁)",u:"cm²",min:8,max:20,step:4,v:16},{k:"A2",l:"Luas penampang sempit (A₂)",u:"cm²",min:4,max:18,step:2,v:8},{k:"v1",l:"Kecepatan di bagian lebar (v₁)",u:"m/s",min:0.2,max:1,step:0.1,v:0.6}],
+  act:"Catat data",
+  cols:[{k:"A1",l:"A₁ (cm²)"},{k:"A2",l:"A₂ (cm²)"},{k:"v1",l:"v₁ (m/s)"},{k:"v2",l:"v₂ (m/s)"},{k:"h",l:"h (cm)"},{k:"d",l:"v₂²−v₁²",from:3},{k:"gh",l:"2gh",from:3}],
+  colNote:"h = selisih tinggi air di kedua tabung. Pada kolom 2gh, h dalam meter dan g = 10 m/s².",
+  how:["Ubah v₁ dan amati selisih tinggi air h di kedua tabung.","Ubah A₂ dengan v₁ tetap dan amati lagi.","Kumpulkan minimal 5 data: minimal 3 nilai v₁ dan 2 nilai A₂ yang berbeda."],
+  req:r=>r.length<5?"Butuh minimal 5 data (sekarang "+r.length+").":new Set(r.map(x=>x.v1)).size<3?"Coba minimal 3 nilai v₁.":new Set(r.map(x=>x.A2)).size<2?"Coba minimal 2 nilai A₂.":null,
+  pat:[
+   {q:"Tabung di atas bagian sempit airnya lebih rendah. Artinya tekanan di bagian sempit…",o:["lebih kecil","lebih besar","sama"],a:0,h:"Tinggi air di tabung sebanding dengan tekanan di bawahnya.",e:"Di bagian sempit air lebih cepat sehingga tekanannya lebih kecil. Selisih tekanan P₁ − P₂ = ρgh."},
+   {q:"Bandingkan kolom v₂²−v₁² dengan kolom 2gh.",o:["Selalu sama","2gh selalu lebih besar","Tidak berhubungan"],a:0,h:"Baca dua kolom berwarna di tiap baris.",e:"Dari Bernoulli: P₁ − P₂ = ½ρ(v₂² − v₁²) = ρgh, sehingga v₂² − v₁² = 2gh."},
+   {q:"Petugas hanya tahu A₁, A₂, dan h. Bagaimana ia memperoleh v₁?",o:["Mengganti v₂ dengan (A₁/A₂)·v₁ dari asas kontinuitas, lalu menyelesaikan v₁","Tidak mungkin tanpa mengukur v₂","Cukup v₁ = √(2gh) seperti Torricelli"],a:0,h:"Ingat A₁v₁ = A₂v₂.",e:"v₁²[(A₁/A₂)² − 1] = 2gh. Kecepatan didapat hanya dari ukuran pipa dan h."}],
+  bld:[{lhs:"v₁ =",tip:"Susun rumus venturimeter",tok:["√(","2gh","gh","÷","×","((A₁/A₂)² − 1)","((A₁/A₂)² + 1)",")"],ok:a=>a.join("")==="√(2gh÷((A₁/A₂)² − 1))"}],
+  concept:{f:"v₁ = √( 2gh / [(A₁/A₂)² − 1] )",t:"Venturimeter tanpa manometer mengukur kelajuan zat cair dalam pipa. h adalah selisih tinggi zat cair pada kedua tabung, A₁ penampang lebar, A₂ penampang sempit."},
+  qs:[
+   s=>{const [A1,A2,h]=pick([[10,5,15],[12,4,160],[8,4,135]],s),a=Math.sqrt(20*h/100/((A1/A2)**2-1));return{t:`Venturimeter memiliki penampang ${A1} cm² dan ${A2} cm². Selisih tinggi air pada kedua tabung ${h} cm. Berapa kecepatan air di penampang besar? (g = 10 m/s²)`,u:"m/s",a,h:"v₁ = √(2gh / [(A₁/A₂)² − 1]), h dalam meter.",s:`v₁ = √(2·10·${f(h/100)} / (${f((A1/A2)**2)} − 1)) = ${f(a)} m/s`}},
+   s=>{const [v1,v2]=pick([[1,3],[2,4],[1,5]],s),a=(v2*v2-v1*v1)/20*100;return{t:`Air mengalir ${v1} m/s di bagian lebar venturimeter dan ${v2} m/s di bagian sempit. Berapa selisih tinggi air pada kedua tabung? (g = 10 m/s²)`,u:"cm",a,h:"v₂² − v₁² = 2gh.",s:`h = (${v2*v2} − ${v1*v1}) / 20 = ${f(a/100)} m = ${f(a)} cm`}},
+   s=>{const [A1,A2,h]=pick([[20,10,60],[10,5,15],[15,5,40]],s),v=Math.sqrt(20*h/100/((A1/A2)**2-1)),a=A1*v*0.1;return{t:`Venturimeter berpenampang ${A1} cm² dan ${A2} cm² menunjukkan selisih tinggi air ${h} cm. Berapa debit air dalam pipa? (g = 10 m/s²)`,u:"L/s",a,h:"Cari v₁ dengan rumus venturimeter, lalu Q = A₁·v₁.",s:`v₁ = ${f(v)} m/s. Q = ${A1}×10⁻⁴ × ${f(v)} = ${f(a/1000,5)} m³/s = ${f(a)} L/s`}}]
+},
+{ id:7, title:"Tabung Pitot",
+  story:["Di badan pesawat terpasang tabung kecil yang menghadap ke depan. Dari tabung itu pilot mengetahui kecepatan pesawat terhadap udara.","Tabung pitot menghentikan sebagian aliran gas di mulutnya dan membandingkan tekanannya dengan aliran bebas memakai manometer. Selidiki hubungan kecepatan gas dengan selisih tinggi cairan manometer."],
+  pred:{q:"Kecepatan aliran udara dibuat 2 kali lebih besar. Selisih tinggi cairan manometer akan…",o:["tetap","menjadi 2 kali","menjadi 4 kali"],a:2},
+  ctrl:[{k:"v",l:"Kecepatan gas (v)",u:"m/s",min:10,max:60,step:5,v:30},{k:"r",l:"Massa jenis gas (ρ)",u:"kg/m³",min:0.6,max:1.4,step:0.2,v:1.2},{k:"c",l:"Cairan manometer (ρ')",u:"",min:1,max:3,step:1,v:2,sh:v=>["Alkohol, 800 kg/m³","Air, 1000 kg/m³","Raksa, 13.600 kg/m³"][v-1]}],
+  act:"Catat data",
+  cols:[{k:"r",l:"ρ gas"},{k:"v",l:"v (m/s)"},{k:"rc",l:"ρ' cairan"},{k:"h",l:"h (mm)"},{k:"K",l:"½ρv² (Pa)",from:3},{k:"U",l:"ρ'gh (Pa)",from:3}],
+  colNote:"Massa jenis dalam kg/m³, h = selisih tinggi cairan manometer, g = 10 m/s².",
+  how:["Pakai air sebagai cairan manometer. Ubah kecepatan gas, misalnya 10, 20, dan 40 m/s, lalu catat h.","Ganti cairan manometer dan bandingkan h pada kecepatan yang sama.","Kumpulkan minimal 5 data: minimal 3 nilai v dan 2 jenis cairan."],
+  req:r=>r.length<5?"Butuh minimal 5 data (sekarang "+r.length+").":new Set(r.map(x=>x.v)).size<3?"Coba minimal 3 nilai v.":new Set(r.map(x=>x.rc)).size<2?"Coba minimal 2 jenis cairan manometer.":null,
+  pat:[
+   {q:"Di mulut tabung pitot gas berhenti (v = 0). Tekanan di titik itu dibanding aliran bebas…",o:["lebih besar","lebih kecil","sama"],a:0,h:"Bernoulli: jika kecepatan turun, tekanan…",e:"Di titik stagnasi seluruh ½ρv² berubah menjadi tekanan. Selisih tekanannya ½ρv²."},
+   {q:"Saat v menjadi 2 kali (cairan sama), h menjadi…",o:["4 kali","2 kali","tetap"],a:0,h:"Bandingkan data v = 10 dan v = 20 m/s, atau 20 dan 40 m/s.",e:"h sebanding dengan v²."},
+   {q:"Bandingkan kolom ½ρv² dengan ρ'gh.",o:["Selalu sama","½ρv² selalu lebih besar","Tidak berhubungan"],a:0,h:"Baca dua kolom berwarna.",e:"Selisih tekanan gas ditahan oleh selisih tinggi cairan: ½ρv² = ρ'gh."}],
+  bld:[{lhs:"v =",tip:"Susun rumus kecepatan gas pada tabung pitot",tok:["√(","2ρ'gh","ρ'gh","÷","×","ρ","ρ'",")"],ok:a=>a.join("")==="√(2ρ'gh÷ρ)"}],
+  concept:{f:"v = √( 2ρ'gh / ρ )",t:"Tabung pitot mengukur kelajuan gas. ρ' massa jenis cairan manometer, ρ massa jenis gas, h selisih tinggi cairan pada kedua kaki manometer."},
+  qs:[
+   s=>{const [rc,r,h]=pick([[1000,1.25,10],[1000,1.25,2.5],[13600,1.36,0.5]],s),a=Math.sqrt(2*rc*10*h/100/r);return{t:`Tabung pitot dipakai mengukur aliran gas bermassa jenis ${f(r)} kg/m³. Cairan manometer bermassa jenis ${f(rc,0)} kg/m³ menunjukkan selisih tinggi ${f(h)} cm. Berapa kecepatan gas? (g = 10 m/s²)`,u:"m/s",a,h:"v = √(2ρ'gh/ρ), h dalam meter.",s:`v = √(2·${rc}·10·${f(h/100,4)} / ${f(r)}) = √${f(a*a,0)} = ${f(a)} m/s`}},
+   s=>{const v=pick([50,30,40],s),a=1.2*v*v/20000*100;return{t:`Udara (ρ = 1,2 kg/m³) mengalir ${v} m/s melewati tabung pitot bermanometer air (ρ' = 1000 kg/m³). Berapa selisih tinggi air di manometer? (g = 10 m/s²)`,u:"cm",a,h:"½ρv² = ρ'gh.",s:`h = ρv²/(2ρ'g) = 1,2·${v*v}/20.000 = ${f(a/100,4)} m = ${f(a)} cm`}},
+   s=>{const [v1,v2,h]=pick([[20,60,2],[15,30,3],[10,40,0.5]],s),a=h*(v2/v1)**2;return{t:`Pada kecepatan gas ${v1} m/s, manometer tabung pitot menunjukkan selisih tinggi ${f(h)} cm. Berapa selisih tingginya saat kecepatan gas ${v2} m/s?`,u:"cm",a,h:"h sebanding dengan v².",s:`h₂ = ${f(h)} × (${v2}/${v1})² = ${f(a)} cm`}}]
+},
+{ id:8, title:"Alat Penyemprot",
+  story:["Penyemprot nyamuk dan botol parfum tidak memompa cairannya secara langsung. Kamu hanya mendorong udara, tetapi cairan ikut naik lalu menyembur sebagai kabut.","Udara yang melaju kencang di atas ujung pipa mengubah tekanan di sana. Selidiki seberapa cepat udara harus ditiup agar cairan sampai ke ujung pipa."],
+  pred:{q:"Udara ditiup makin cepat melewati ujung atas pipa yang tercelup cairan. Cairan di dalam pipa akan…",o:["naik makin tinggi","turun","tidak berubah"],a:0},
+  ctrl:[{k:"v",l:"Kecepatan udara di atas pipa (v)",u:"m/s",min:0,max:40,step:2,v:16},{k:"L",l:"Tinggi ujung pipa dari permukaan cairan (L)",u:"cm",min:2,max:10,step:1,v:6},{k:"c",l:"Cairan (ρ')",u:"",min:1,max:2,step:1,v:2,sh:v=>["Minyak, 800 kg/m³","Air, 1000 kg/m³"][v-1]}],
+  act:"Catat data",
+  cols:[{k:"v",l:"v (m/s)"},{k:"rc",l:"ρ' cairan"},{k:"L",l:"L (cm)"},{k:"h",l:"h naik (cm)"},{k:"st",l:"Keadaan"},{k:"K",l:"½ρv² (Pa)",from:3},{k:"U",l:"ρ'gh (Pa)",from:3}],
+  colNote:"h naik = tinggi yang dapat dicapai cairan akibat turunnya tekanan. ρ udara = 1,2 kg/m³, g = 10 m/s².",
+  how:["Naikkan kecepatan udara sedikit demi sedikit dan amati cairan di dalam pipa.","Cari kecepatan saat cairan mulai menyemprot, lalu ubah L dan jenis cairan.","Kumpulkan minimal 5 data. Harus ada keadaan Menyemprot dan Belum."],
+  req:r=>r.length<5?"Butuh minimal 5 data (sekarang "+r.length+").":!r.some(x=>x.st==="Menyemprot")?"Belum ada data Menyemprot.":!r.some(x=>x.st==="Belum")?"Belum ada data dengan keadaan Belum.":null,
+  pat:[
+   {q:"Mengapa cairan naik di dalam pipa?",o:["Tekanan di ujung atas pipa turun karena udara bergerak cepat, sedangkan permukaan cairan di wadah tetap ditekan udara luar","Udara menarik cairan seperti magnet","Cairan memuai karena gesekan udara"],a:0,h:"Bandingkan tekanan di atas pipa dengan tekanan di permukaan cairan dalam wadah.",e:"Selisih tekanan ½ρv² mendorong cairan naik."},
+   {q:"Bandingkan kolom ½ρv² dengan ρ'gh.",o:["Selalu sama","ρ'gh selalu lebih besar","Tidak berhubungan"],a:0,h:"Baca dua kolom berwarna.",e:"Cairan naik sampai tekanan kolom cairan ρ'gh menyamai turunnya tekanan ½ρv²."},
+   {q:"Alat mulai menyemprot ketika…",o:["h naik sama dengan atau lebih dari L","h naik lebih kecil dari L","L diperbesar"],a:0,h:"Bandingkan kolom h naik dan L pada baris Menyemprot.",e:"Cairan harus sampai ke ujung pipa agar terbawa aliran udara."}],
+  bld:[{lhs:"h =",tip:"Susun rumus tinggi naiknya cairan",tok:["ρv²","ρv","÷","×","2ρ'g","ρ'g"],ok:a=>a.join("")==="ρv²÷2ρ'g"}],
+  concept:{f:"h = ρv² / (2ρ'g)",t:"Alat penyemprot bekerja karena ½ρv² = ρ'gh. ρ massa jenis udara, v kecepatan udara di atas pipa, ρ' massa jenis cairan. Alat menyemprot jika h ≥ L, yaitu v ≥ √(2ρ'gL/ρ)."},
+  qs:[
+   s=>{const v=pick([20,30,10],s),a=0.6*v*v;return{t:`Udara (ρ = 1,2 kg/m³) ditiup ${v} m/s melewati ujung pipa penyemprot. Berapa penurunan tekanan di ujung pipa?`,u:"Pa",a,h:"ΔP = ½ρv².",s:`ΔP = ½·1,2·${v*v} = ${f(a)} Pa`}},
+   s=>{const [v,rc]=pick([[20,800],[30,1000],[40,800]],s),a=0.6*v*v/(rc*10)*100;return{t:`Udara (ρ = 1,2 kg/m³) ditiup ${v} m/s di atas pipa yang tercelup cairan bermassa jenis ${rc} kg/m³. Berapa tinggi naiknya cairan? (g = 10 m/s²)`,u:"cm",a,h:"h = ρv²/(2ρ'g).",s:`h = 1,2·${v*v}/(2·${rc}·10) = ${f(a/100,4)} m = ${f(a)} cm`}},
+   s=>{const [L,rc]=pick([[6,1000],[2.4,1000],[6,800]],s),a=Math.sqrt(2*rc*10*L/100/1.2);return{t:`Ujung pipa penyemprot berada ${f(L)} cm di atas permukaan cairan (ρ' = ${rc} kg/m³). Berapa kecepatan udara minimum agar cairan menyemprot? (ρ udara = 1,2 kg/m³, g = 10 m/s²)`,u:"m/s",a,h:"Syarat h = L, jadi v = √(2ρ'gL/ρ).",s:`v = √(2·${rc}·10·${f(L/100,3)}/1,2) = √${f(a*a,0)} = ${f(a)} m/s`}}]
+}];
+const NM=M.length,FID=NM+1,NID=NM+2,ALL=[...Array(FID)].map((_,i)=>i+1),TOT=NM*30+50,total=()=>ALL.reduce((s,i)=>s+pts(i),0),lab=(x,v)=>x.sh?x.sh(v):f(v)+" "+x.u;
+const FINAL={id:FID,title:"Misi Akhir",qs:[
+ ()=>({t:"Permukaan air di menara berada 5 m di atas keran terbuka di rumah. Berapa kecepatan air keluar dari keran? (g = 10 m/s²)",u:"m/s",a:10,h:"Teorema Torricelli.",s:"v = √(2·10·5) = 10 m/s"}),
+ ()=>({t:"Mulut keran berpenampang 1 cm². Dengan kecepatan dari soal 1, berapa debit keran?",u:"L/s",a:1,h:"Q = A·v.",s:"Q = 1×10⁻⁴ × 10 = 10⁻³ m³/s = 1 L/s"}),
+ ()=>({t:"Berapa lama keran itu mengisi bak mandi 300 liter?",u:"menit",a:5,h:"t = V/Q.",s:"t = 300 L / 1 L/s = 300 s = 5 menit"}),
+ ()=>({t:"Keran disambung dari pipa utama berpenampang 5 cm². Berapa kecepatan air di pipa utama?",u:"m/s",a:2,h:"Asas kontinuitas.",s:"v = (1 × 10)/5 = 2 m/s"}),
+ ()=>({t:"Pipa utama dan keran sama tinggi. Berapa selisih tekanan air di pipa utama dengan di mulut keran? (ρ = 1000 kg/m³)",u:"kPa",a:48,h:"Bernoulli mendatar: ΔP = ½ρ(v₂² − v₁²).",s:"ΔP = ½·1000·(10² − 2²) = 48.000 Pa = 48 kPa"})]};
+
+/* ---------- State ---------- */
+const KEY="misi-fluida-v2";
+let S={kelas:"",kelompok:"",anggota:["","","","",""],m:{}};
+try{const r=localStorage.getItem(KEY);if(r)S=Object.assign(S,JSON.parse(r));}catch(e){}
+if(!Array.isArray(S.anggota))S.anggota=["","","","",""];
+const members=()=>S.anggota.map(a=>a.trim()).filter(Boolean);
+const groupOk=()=>S.kelas.trim()&&members().length>=3;
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+function ms(id){if(!S.m[id])S.m[id]={stage:0,pred:null,rows:[],pat:[],bld:[],concl:"",q:[],seed:Math.floor(Math.random()*3),done:false,open:id===1};return S.m[id];}
+const isOpen=id=>true;
+const maxPts=id=>(id===FID?5:3)*10;
+const pts=id=>ms(id).q.reduce((s,q)=>s+(q&&q.done?q.p:0),0);
+let cur=1, view=0, P={}, RT={}, CH={}, msg="";
+
+/* ---------- Simulasi ---------- */
+const cvs=document.createElement("canvas"); const W=640,H=360;
+function K(){const s=getComputedStyle(document.documentElement),g=n=>s.getPropertyValue(n).trim();return{water:g("--water"),deep:g("--deep"),pipe:g("--pipe"),ink:g("--ink"),muted:g("--muted"),accent:g("--accent"),surf:g("--surface"),line:g("--line"),good:g("--good"),bad:g("--bad")};}
+function txt(c,s,x,y,col,size=13,al="left",b=false){c.fillStyle=col;c.font=(b?"600 ":"")+size+"px 'Source Sans 3',sans-serif";c.textAlign=al;c.fillText(s,x,y);}
+function arrow(c,x1,y1,x2,y2,col,w=3){const a=Math.atan2(y2-y1,x2-x1);c.strokeStyle=col;c.fillStyle=col;c.lineWidth=w;c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke();c.beginPath();c.moveTo(x2,y2);c.lineTo(x2-9*Math.cos(a-.45),y2-9*Math.sin(a-.45));c.lineTo(x2-9*Math.cos(a+.45),y2-9*Math.sin(a+.45));c.fill();}
+function seedPts(rt,n){if(!rt.pts){rt.pts=[];for(let i=0;i<n;i++)rt.pts.push({x:Math.random(),f:Math.random()*1.7-.85});}}
+const calc={
+ 1:p=>({A:p.A,v:p.v,V:p.V,t:p.V/(p.A*p.v*0.1),Q:p.A*p.v*0.1,Av:p.A*p.v*0.1}),
+ 2:p=>({A1:p.A1,v1:p.v1,A2:p.A2,v2:p.A1*p.v1/p.A2,Q1:p.A1*p.v1,Q2:p.A1*p.v1}),
+ 3:p=>{const v2=10*p.v1/p.A2,P1=200,K1=.5*p.v1*p.v1,K2=.5*v2*v2,U2=10*p.h2,P2=P1+K1-K2-U2;return{v1:p.v1,P1,v2,h2:p.h2,P2,K1,K2,U2,E1:P1+K1,E2:P2+K2+U2};},
+ 4:p=>{const dv=p.v1*p.v1-p.v2*p.v2,dP=0.6*dv,F=dP*p.A/1000,Wt=p.m*G,st=Math.abs(F-Wt)<0.03*Wt?"Mendatar":F>Wt?"Naik":"Turun";return{v1:p.v1,v2:p.v2,A:p.A,dP,F,W:Wt,st,dv,r:dv===0?"–":dP/dv};},
+ 6:p=>{const v2=p.A1*p.v1/p.A2,d=v2*v2-p.v1*p.v1,h=d/(2*G);return{A1:p.A1,A2:p.A2,v1:p.v1,v2,h:h*100,d,gh:2*G*h};},
+ 7:p=>{const rc=[800,1000,13600][p.c-1],K=.5*p.r*p.v*p.v,h=K/(rc*G);return{r:p.r,v:p.v,rc,h:h*1000,K,U:rc*G*h};},
+ 8:p=>{const rc=[800,1000][p.c-1],K=.6*p.v*p.v,h=K/(rc*G)*100;return{v:p.v,rc,L:p.L,h,st:h>=p.L?"Menyemprot":"Belum",K,U:rc*G*h/100};},
+ 5:p=>{const h=p.H-p.y,v=Math.sqrt(2*G*h);return{H:p.H,y:p.y,h,v,x:2*Math.sqrt(h*p.y),v2:v*v,gh:2*G*h};}
+};
+function drawDebit(c,p,rt,dt,k){
+  const Q=p.A*p.v*0.1; seedPts(rt,26);
+  if(rt.run){rt.t+=dt*4;rt.fill=Q*rt.t;if(rt.fill>=p.V){rt.run=false;rt.fill=p.V;rt.t=p.V/Q;addRow(calc[1](p));}}
+  const th=8+p.A*2.4,py=64,nx=410;
+  c.fillStyle=k.pipe;c.fillRect(20,py-th/2-4,nx-20+th/2+4,th+8);c.fillRect(nx-th/2-4,py,th+8,34);
+  c.fillStyle=k.water;c.fillRect(20,py-th/2,nx-20+th/2,th);c.fillRect(nx-th/2,py,th,34);
+  c.fillStyle=k.surf;for(const q of rt.pts){if(rt.run)q.x=(q.x+dt*p.v*0.12)%1;c.beginPath();c.arc(24+q.x*(nx-30),py+q.f*th/2*.8,2,0,7);c.fill();}
+  const tx=300,tw=220,by=330,thh=200,lv=(rt.fill||0)/p.V*thh;
+  if(rt.run){c.fillStyle=k.water;c.fillRect(nx-th*.35,py+34,th*.7,by-lv-(py+34));}
+  c.fillStyle=k.water;c.fillRect(tx,by-lv,tw,lv);
+  c.strokeStyle=k.ink;c.lineWidth=3;c.beginPath();c.moveTo(tx,by-thh-10);c.lineTo(tx,by);c.lineTo(tx+tw,by);c.lineTo(tx+tw,by-thh-10);c.stroke();
+  c.setLineDash([5,4]);c.lineWidth=1;c.strokeStyle=k.muted;c.beginPath();c.moveTo(tx,by-thh);c.lineTo(tx+tw,by-thh);c.stroke();c.setLineDash([]);
+  txt(c,"penuh = "+f(p.V)+" L",tx+tw+8,by-thh+4,k.muted,12);
+  txt(c,"A = "+f(p.A)+" cm²   v = "+f(p.v)+" m/s",24,py+th/2+24,k.ink,14,"left",true);
+  txt(c,"Stopwatch",40,170,k.muted,13);txt(c,f(rt.t||0,1)+" s",40,204,k.ink,30,"left",true);
+  txt(c,"Volume terisi",40,244,k.muted,13);txt(c,f(rt.fill||0,1)+" L",40,278,k.deep,30,"left",true);
+  if(!rt.run&&!rt.fill)txt(c,"Tekan Buka keran untuk mulai",40,318,k.accent,14,"left",true);
+}
+function drawPipe(c,p,rt,dt,k,mode){
+  const elev=mode===1,A1=elev?10:p.A1,A2=p.A2,v1=p.v1,h2=elev?p.h2:0,r1=9*Math.sqrt(A1),r2=9*Math.sqrt(A2);
+  const y1=mode?270:190,y2=y1-h2*30,x0=24,x1=W-24,mid=W/2,tw=90;
+  const s=x=>{let u=(x-(mid-tw/2))/tw;u=u<0?0:u>1?1:u;return u*u*(3-2*u);},r=x=>r1+(r2-r1)*s(x),cy=x=>y1+(y2-y1)*s(x);
+  const shape=o=>{c.beginPath();for(let x=x0;x<=x1;x+=4)c.lineTo(x,cy(x)-r(x)-o);for(let x=x1;x>=x0;x-=4)c.lineTo(x,cy(x)+r(x)+o);c.closePath();c.fill();};
+  c.fillStyle=k.pipe;shape(5);c.fillStyle=k.water;shape(0);
+  seedPts(rt,60);c.fillStyle=k.surf;
+  for(const q of rt.pts){let x=x0+q.x*(x1-x0);const sp=Math.min(700,v1*(r1/r(x))**2*26);x+=sp*dt;if(x>x1)x=x0;q.x=(x-x0)/(x1-x0);c.beginPath();c.arc(x,cy(x)+q.f*r(x),2.2,0,7);c.fill();}
+  const v2=v1*A1/A2,xa=130,xb=W-130;
+  if(elev){const d=calc[3](p);
+    [[xa,y1,r1,d.P1,"P₁"],[xb,y2,r2,d.P2,"P₂"]].forEach(([x,y,rr,Pv,l])=>{const hgt=Pv/200*64,top=y-rr-5;
+      c.fillStyle=k.pipe;c.fillRect(x-8,top-84,16,84);c.fillStyle=k.surf;c.fillRect(x-5,top-84,10,84);c.fillStyle=k.deep;c.fillRect(x-5,top-hgt,10,hgt);
+      txt(c,l+" = "+f(Pv,1)+" kPa",x+14,top-hgt+4,k.ink,14,"left",true);});
+    txt(c,"v₁ = "+f(v1)+" m/s",xa,y1+r1+26,k.ink,14,"center",true);txt(c,"v₂ = "+f(v2)+" m/s",xb,y2+r2+26,k.ink,14,"center",true);
+    txt(c,"A₁ = 10 cm²",xa,y1+r1+44,k.muted,13,"center");txt(c,"A₂ = "+f(A2)+" cm²",xb,y2+r2+44,k.muted,13,"center");
+    if(h2>0){c.strokeStyle=k.accent;c.lineWidth=1.5;c.setLineDash([4,4]);c.beginPath();c.moveTo(xb+80,y1);c.lineTo(x1,y1);c.stroke();c.setLineDash([]);arrow(c,x1-8,y1,x1-8,y2,k.accent,2);txt(c,"h₂ = "+f(h2)+" m",x1-4,y1+18,k.accent,13,"right",true);}
+  }else if(mode===2){const d=calc[6](p),l1=96,l2=l1+d.h;
+    [[xa,r1,l1],[xb,r2,l2]].forEach(([x,rr,l])=>{const top=y1-rr-4;c.fillStyle=k.pipe;c.fillRect(x-9,70,18,top-70);c.fillStyle=k.surf;c.fillRect(x-6,70,12,top-70);c.fillStyle=k.water;c.fillRect(x-6,l,12,top-l+6);});
+    c.strokeStyle=k.accent;c.lineWidth=1.5;c.setLineDash([4,4]);c.beginPath();c.moveTo(xa+8,l1);c.lineTo(xb+40,l1);c.moveTo(xb+8,l2);c.lineTo(xb+40,l2);c.stroke();c.setLineDash([]);
+    txt(c,"h = "+f(d.h,1)+" cm",xb+46,(l1+l2)/2+5,k.accent,15,"left",true);
+    txt(c,"v₁ = "+f(v1)+" m/s",xa,y1+r1+26,k.ink,14,"center",true);txt(c,"v₂ = "+f(v2)+" m/s",xb,y1+r2+26,k.ink,14,"center",true);
+    txt(c,"A₁ = "+f(A1)+" cm²",xa,y1+r1+44,k.muted,13,"center");txt(c,"A₂ = "+f(A2)+" cm²",xb,y1+r2+44,k.muted,13,"center");
+  }else{
+    txt(c,"A₁ = "+f(A1)+" cm²",xa,y1-r1-34,k.muted,13,"center");txt(c,"v₁ = "+f(v1)+" m/s",xa,y1-r1-14,k.ink,16,"center",true);
+    txt(c,"A₂ = "+f(A2)+" cm²",xb,y1-r2-34,k.muted,13,"center");txt(c,"v₂ = "+f(v2)+" m/s",xb,y1-r2-14,k.ink,16,"center",true);
+    arrow(c,xa-20*Math.min(3,v1),y1+r1+24,xa+20*Math.min(3,v1),y1+r1+24,k.accent);arrow(c,xb-Math.min(100,20*v2),y1+r2+24,xb+Math.min(100,20*v2),y1+r2+24,k.accent);
+    txt(c,"Panjang panah menunjukkan kecepatan aliran",W/2,H-14,k.muted,12,"center");
+  }
+}
+function drawWing(c,p,rt,dt,k){
+  const d=calc[4](p),cx=240,cy=185;rt.o1=(rt.o1||0)+dt*p.v1*1.6;rt.o2=(rt.o2||0)+dt*p.v2*1.6;
+  c.lineWidth=2;c.setLineDash([16,10]);
+  for(let i=0;i<3;i++){c.lineDashOffset=-rt.o1;c.strokeStyle=k.water;c.beginPath();for(let x=16;x<=470;x+=6){const y=cy-22-i*24-(44-i*9)*Math.exp(-(((x-cx)/120)**2));c.lineTo(x,y);}c.stroke();
+    c.lineDashOffset=-rt.o2;c.strokeStyle=k.deep;c.beginPath();for(let x=16;x<=470;x+=6){const y=cy+30+i*24+(8-i*2)*Math.exp(-(((x-cx)/120)**2));c.lineTo(x,y);}c.stroke();}
+  c.setLineDash([]);
+  c.fillStyle=k.pipe;c.beginPath();c.moveTo(cx-112,cy+6);c.bezierCurveTo(cx-104,cy-54,cx+20,cy-44,cx+116,cy+10);c.bezierCurveTo(cx+30,cy+16,cx-70,cy+22,cx-112,cy+6);c.fill();
+  txt(c,"atas: v₁ = "+f(p.v1)+" m/s",20,34,k.ink,15,"left",true);txt(c,"bawah: v₂ = "+f(p.v2)+" m/s",20,H-22,k.ink,15,"left",true);
+  txt(c,"P₂ − P₁ = "+f(d.dP,0)+" Pa",300,H-22,k.muted,14);
+  const L=Math.max(-70,Math.min(80,d.F/4));if(Math.abs(L)>4)arrow(c,cx,cy-8,cx,cy-8-L,k.accent,4);
+  // panel pesawat
+  c.fillStyle=k.surf;c.fillRect(490,14,136,H-28);c.strokeStyle=k.line;c.lineWidth=1;c.strokeRect(490,14,136,H-28);
+  const tg=d.st==="Naik"?95:d.st==="Turun"?245:170;rt.py=rt.py==null?170:rt.py+(tg-rt.py)*Math.min(1,dt*2.5);
+  const px=558,py=rt.py;c.fillStyle=k.ink;c.beginPath();c.ellipse(px,py,34,7,0,0,7);c.fill();c.beginPath();c.moveTo(px-6,py);c.lineTo(px+8,py-22);c.lineTo(px+14,py-22);c.lineTo(px+8,py);c.fill();c.beginPath();c.moveTo(px-6,py);c.lineTo(px+8,py+22);c.lineTo(px+14,py+22);c.lineTo(px+8,py);c.fill();c.beginPath();c.moveTo(px-30,py);c.lineTo(px-38,py-14);c.lineTo(px-32,py-14);c.lineTo(px-22,py);c.fill();
+  txt(c,d.st,558,40,d.st==="Naik"?k.good:d.st==="Turun"?k.bad:k.deep,17,"center",true);
+  txt(c,"F angkat = "+f(d.F,1)+" kN",558,H-52,k.accent,13,"center",true);txt(c,"Berat = "+f(d.W,0)+" kN",558,H-32,k.ink,13,"center",true);
+}
+function drawTank(c,p,rt,dt,k){
+  const d=calc[5](p),sc=120,gy=320,tx=36,tw=110,hx=tx+tw,hy=gy-p.y*sc,sy=gy-p.H*sc;
+  c.fillStyle=k.water;c.fillRect(tx,sy,tw,p.H*sc);
+  c.strokeStyle=k.ink;c.lineWidth=3;c.beginPath();c.moveTo(tx,gy-2.1*sc);c.lineTo(tx,gy);c.lineTo(hx,gy);c.moveTo(hx,gy-2.1*sc);c.lineTo(hx,hy-5);c.moveTo(hx,hy+5);c.lineTo(hx,gy);c.stroke();
+  c.strokeStyle=k.muted;c.lineWidth=2;c.beginPath();c.moveTo(10,gy);c.lineTo(W-10,gy);c.stroke();
+  for(let i=0;i<=16;i++){const x=hx+i*0.25*sc;if(x>W-14)break;c.beginPath();c.moveTo(x,gy);c.lineTo(x,gy+(i%2?5:9));c.stroke();if(i%2===0)txt(c,f(i*.25,1),x,gy+24,k.muted,12,"center");}
+  txt(c,"jarak dari tangki (m)",W-16,gy+38,k.muted,12,"right");
+  const T=Math.sqrt(2*p.y/G);c.strokeStyle=k.water;c.lineWidth=4;c.beginPath();for(let i=0;i<=30;i++){const t=T*i/30;c.lineTo(hx+d.v*t*sc,hy+.5*G*t*t*sc);}c.stroke();
+  rt.ph=((rt.ph||0)+dt*1.4)%1;c.fillStyle=k.surf;for(let i=0;i<6;i++){const t=T*((rt.ph+i/6)%1);c.beginPath();c.arc(hx+d.v*t*sc,hy+.5*G*t*t*sc,2,0,7);c.fill();}
+  const lx=hx+d.x*sc;arrow(c,lx,gy-34,lx,gy-4,k.accent,2);txt(c,"x = "+f(d.x)+" m",lx,gy-40,k.accent,14,"center",true);
+  c.strokeStyle=k.surf;c.lineWidth=1.5;c.beginPath();c.moveTo(tx+26,sy);c.lineTo(tx+26,hy);c.stroke();txt(c,"h = "+f(d.h),tx+32,(sy+hy)/2+4,k.surf,13,"left",true);
+  c.beginPath();c.moveTo(tx+70,hy);c.lineTo(tx+70,gy);c.stroke();txt(c,"y = "+f(p.y),tx+76,Math.min(gy-6,(hy+gy)/2+4),k.surf,13,"left",true);
+  txt(c,"v = "+f(d.v)+" m/s",hx+14,Math.max(24,hy-12),k.ink,15,"left",true);
+  txt(c,"H = "+f(p.H)+" m",tx+tw/2,sy-8,k.muted,13,"center");
+}
+function tube(c,pts,col,w){c.strokeStyle=col;c.lineWidth=w;c.lineJoin="round";c.lineCap="butt";c.beginPath();pts.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.stroke();}
+function drawPitot(c,p,rt,dt,k){
+  const d=calc[7](p);rt.o=(rt.o||0)+dt*p.v*3;
+  c.lineWidth=2;c.setLineDash([16,10]);c.lineDashOffset=-rt.o;c.strokeStyle=k.water;
+  for(let i=0;i<5;i++){const y=40+i*24;c.beginPath();c.moveTo(16,y);c.lineTo(i===2?296:W-16,y);c.stroke();}
+  c.setLineDash([]);
+  const xl=240,xr=400,yt=152,yb=312,px=Math.min(120,d.h*0.45),ll=236-px/2,lr=236+px/2;
+  const U=[[xl,yt],[xl,yb],[xr,yb],[xr,88],[300,88]];
+  tube(c,U,k.pipe,18);tube(c,U,k.surf,11);tube(c,[[xl,ll],[xl,yb],[xr,yb],[xr,lr]],k.deep,11);
+  txt(c,"v = "+f(p.v)+" m/s",20,24,k.ink,15,"left",true);txt(c,"ρ gas = "+f(p.r)+" kg/m³",150,24,k.muted,13);
+  txt(c,"mulut tabung: gas berhenti (v = 0)",306,76,k.accent,12,"left",true);
+  txt(c,"lubang samping",xl-14,yt+16,k.muted,12,"right");
+  c.strokeStyle=k.accent;c.lineWidth=1.5;c.setLineDash([4,4]);c.beginPath();c.moveTo(xl+8,ll);c.lineTo(xr+34,ll);c.moveTo(xr+8,lr);c.lineTo(xr+34,lr);c.stroke();c.setLineDash([]);
+  txt(c,"h = "+f(d.h,d.h<10?2:1)+" mm",xr+42,236+5,k.accent,16,"left",true);
+  txt(c,["alkohol","air","raksa"][p.c-1],(xl+xr)/2,yb+26,k.muted,13,"center");
+}
+function drawSpray(c,p,rt,dt,k){
+  const d=calc[8](p),sc=14,sy=296,tx=330,top=sy-p.L*sc,rise=Math.min(d.h,p.L)*sc,on=d.st==="Menyemprot";
+  c.fillStyle=k.deep;c.fillRect(250,sy,160,46);
+  c.strokeStyle=k.ink;c.lineWidth=3;c.beginPath();c.moveTo(250,sy-22);c.lineTo(250,sy+46);c.lineTo(410,sy+46);c.lineTo(410,sy-22);c.stroke();
+  c.fillStyle=k.pipe;c.fillRect(tx-8,top,16,sy+34-top);c.fillStyle=k.surf;c.fillRect(tx-5,top,10,sy+34-top);c.fillStyle=k.deep;c.fillRect(tx-5,sy-rise,10,rise+34);
+  c.fillStyle=k.pipe;c.fillRect(24,top-26,tx-40,24);c.fillStyle=k.surf;c.fillRect(24,top-22,tx-40,16);
+  rt.o=(rt.o||0)+dt*p.v*4;c.strokeStyle=k.water;c.lineWidth=2;c.setLineDash([14,10]);c.lineDashOffset=-rt.o;
+  [-18,-14,-10].forEach(o=>{c.beginPath();c.moveTo(30,top+o);c.lineTo(W-24,top+o);c.stroke();});c.setLineDash([]);
+  if(on){rt.ph=((rt.ph||0)+dt*p.v/30)%1;c.fillStyle=k.deep;for(let i=0;i<28;i++){const u=(rt.ph+i/28)%1;c.beginPath();c.arc(tx+8+u*250,top-14+((i%7)-3)*u*13,2.2,0,7);c.fill();}}
+  txt(c,"udara v = "+f(p.v)+" m/s",28,top-36,k.ink,15,"left",true);
+  arrow(c,tx+46,sy,tx+46,top,k.muted,1.5);txt(c,"L = "+f(p.L)+" cm",tx+54,(sy+top)/2+4,k.muted,13);
+  txt(c,"h naik = "+f(d.h)+" cm",40,sy+10,k.accent,15,"left",true);txt(c,on?"Menyemprot":"Belum menyemprot",40,sy+32,on?k.good:k.bad,15,"left",true);
+  txt(c,["minyak","air"][p.c-1],282,sy+30,k.surf,13,"center",true);
+}
+const DRAW={1:drawDebit,2:(c,p,rt,dt,k)=>drawPipe(c,p,rt,dt,k,0),3:(c,p,rt,dt,k)=>drawPipe(c,p,rt,dt,k,1),4:drawWing,5:drawTank,6:(c,p,rt,dt,k)=>drawPipe(c,p,rt,dt,k,2),7:drawPitot,8:drawSpray};
+let last=0;const still=matchMedia("(prefers-reduced-motion: reduce)").matches;
+function frame(ts){
+  let dt=Math.min(.05,(ts-last)/1000||0);last=ts;
+  if(cur>=1&&cur<=NM&&cvs.isConnected){
+    const dpr=window.devicePixelRatio||1;if(cvs.width!==W*dpr){cvs.width=W*dpr;cvs.height=H*dpr;}
+    const c=cvs.getContext("2d");c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,W,H);
+    DRAW[cur](c,P[cur],RT[cur],(still&&cur!==1)?0:dt,K());
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- Tampilan ---------- */
+const $=s=>document.querySelector(s), V=$("#view");
+function nav(){
+  const items=M.map(m=>({h:"misi-"+m.id,id:m.id,t:m.title})).concat([{h:"misi-akhir",id:FID,t:"Misi Akhir"},{h:"catatan",id:NID,t:"Catatan Lab",n:"≡"}]);
+  $("#nav").innerHTML=items.map(i=>`<a href="#${i.h}" class="${cur===i.id?"on":""} ${i.id<NID&&ms(i.id).done?"done":""}"><span class="n">${i.n||(i.id<FID?i.id:"★")}</span>${i.t}</a>`).join("");
+  $("#total").textContent="Skor: "+total()+" / "+TOT;hdr();
+}
+function hdr(){$("#grp").textContent=groupOk()?`Kelas ${S.kelas} · Kelompok ${S.kelompok||"-"} · ${members().length} anggota`:"Data kelompok belum diisi";}
+function groupForm(start){return`<div class="card" id="gform"><h2 style="font-size:18px;margin-bottom:6px">Data kelompok</h2><p>Satu kelompok berisi 3 sampai 5 siswa. Data ini tercantum di laporan PDF.</p><div class="gf"><label for="g_kelas">Kelas<input id="g_kelas" value="${esc(S.kelas)}" placeholder="XI-…" autocomplete="off"></label><label for="g_kelompok">Nama atau nomor kelompok<input id="g_kelompok" value="${esc(S.kelompok)}" autocomplete="off"></label>${S.anggota.map((a,i)=>`<label for="g_a${i}">Anggota ${i+1}${i>2?" (jika ada)":""}<input id="g_a${i}" value="${esc(a)}" autocomplete="off"></label>`).join("")}</div>${start?`<div class="row"><button class="btn" id="gstart">Simpan dan mulai misi</button>${msg?`<small class="m">${msg}</small>`:""}</div>`:""}</div>`;}
+function route(){
+  const h=location.hash.replace("#","");cur=h==="catatan"?NID:h==="misi-akhir"?FID:(parseInt(h.replace("misi-",""))||1);if(cur<1||cur>NID)cur=1;
+  msg="";if(cur<=NM){const m=M[cur-1];if(!P[cur]){P[cur]={};m.ctrl.forEach(x=>P[cur][x.k]=x.v);RT[cur]={t:0,fill:0};}view=ms(cur).stage;}
+  render();
+}
+function render(){
+  nav();
+  if(cur===NID)return renderNotes();
+  if(!groupOk()){V.innerHTML=`<div class="lockbox" style="max-width:680px">${groupForm(true)}</div>`;return;}
+  if(cur===FID)return renderFinal();
+  const m=M[cur-1],st=ms(cur);
+  if(!$("#guide")){
+    V.innerHTML=`<div class="lab"><div class="bench"><div class="card"><div id="cv"></div></div><div class="card"><div class="ctrl" id="ctrl"></div><div class="row" style="margin-top:12px"><button class="btn" id="act"></button><button class="btn ghost" id="clr">Hapus semua data</button><button class="btn ghost" id="pdfm">Unduh PDF misi ini</button><small class="m" id="actmsg"></small></div></div><div class="card"><div class="tblwrap" id="tbl"></div></div></div><div class="card guide" id="guide"></div></div>`;
+    $("#cv").appendChild(cvs);
+  }
+  if($("#ctrl").dataset.m!=cur){$("#ctrl").dataset.m=cur;
+    $("#ctrl").innerHTML=m.ctrl.map(x=>`<label for="c_${x.k}">${x.l}<b id="v_${x.k}">${lab(x,P[cur][x.k])}</b><input type="range" id="c_${x.k}" data-k="${x.k}" min="${x.min}" max="${x.max}" step="${x.step}" value="${P[cur][x.k]}"></label>`).join("");
+    $("#act").textContent=m.act;}
+  const lockSim=st.stage<2;$("#ctrl").classList.toggle("off",lockSim);$("#act").disabled=lockSim;$("#clr").disabled=lockSim;
+  if(lockSim)$("#actmsg").textContent="Alat terbuka setelah kamu mengunci prediksi.";else if($("#actmsg").textContent.startsWith("Alat"))$("#actmsg").textContent="";
+  table(m,st);guide(m,st);
+}
+function cell(v,k){return typeof v==="string"?v:f(v,k==="t"?1:2);}
+function table(m,st){
+  const cols=m.cols.filter(c=>!c.from||st.stage>=c.from);
+  $("#tbl").innerHTML=st.rows.length?`<table><thead><tr><th>No</th>${cols.map(c=>`<th class="${c.from?"new":""}">${c.l}</th>`).join("")}</tr></thead><tbody>${st.rows.map((r,i)=>`<tr><td>${i+1}</td>${cols.map(c=>`<td class="${c.from?"new":""}">${cell(r[c.k],c.k)}</td>`).join("")}</tr>`).join("")}</tbody></table><small class="m">${m.colNote}</small>`:`<div class="empty">Tabel data masih kosong. Data hasil eksperimen akan muncul di sini.</div>`;
+}
+function addRow(r){const st=ms(cur);if(st.rows.length>=12)st.rows.shift();st.rows.push(r);save();render();}
+function guide(m,st){
+  let h=`<div class="steps">${STAGES.map((s,i)=>`<button data-go="${i}" class="${i===view?"cur":i<st.stage?"past":""}" ${i>st.stage?"disabled":""}>${i+1}. ${s}</button>`).join("")}</div>`;
+  const next=(label,ok=true)=>`<div class="row"><button class="btn" data-next ${ok?"":"disabled"}>${label}</button>${msg?`<small class="m">${msg}</small>`:""}</div>`;
+  if(view===0)h+=`<h2>Misi ${m.id}: ${m.title}</h2>${m.story.map(p=>`<p>${p}</p>`).join("")}${next("Lanjut ke prediksi")}`;
+  if(view===1)h+=`<h2>Apa dugaanmu?</h2><p>Jawab dulu sebelum mencoba. Tidak ada nilai untuk tahap ini, dugaanmu akan dibandingkan dengan hasil eksperimen.</p><div class="q"><p>${m.pred.q}</p><div class="opts">${m.pred.o.map((o,i)=>`<button class="opt ${st.pred===i?"sel":""}" data-pred="${i}" ${st.stage>1?"disabled":""}>${o}</button>`).join("")}</div></div>${next("Kunci prediksi dan mulai eksperimen",st.pred!==null)}`;
+  if(view===2){const e=m.req(st.rows);h+=`<h2>Eksperimen</h2><ol>${m.how.map(x=>`<li>${x}</li>`).join("")}</ol><div class="fb ${e?"hint":"ok"}">${e||"Data sudah cukup. Lanjutkan untuk mencari polanya."}</div><br>${next("Lanjut mencari pola",!e)}`;}
+  if(view===3)h+=`<h2>Temukan pola</h2><p>Kolom baru berwarna sudah muncul di tabel datamu. Gunakan untuk menjawab.</p>${m.pat.map((q,i)=>{const d=st.pat[i];return`<div class="q"><p>${i+1}. ${q.q}</p><div class="opts">${q.o.map((o,j)=>`<button class="opt ${d===true&&j===q.a?"ok":d===j?"no":""}" data-pat="${i}" data-o="${j}" ${d===true?"disabled":""}>${o}</button>`).join("")}</div>${d===true?`<div class="fb ok">${q.e}</div>`:d!==undefined?`<div class="fb hint">Belum tepat. Petunjuk: ${q.h}</div>`:""}</div>`}).join("")}${next("Lanjut merumuskan",m.pat.every((q,i)=>st.pat[i]===true))}`;
+  if(view===4){const all=m.bld.every((b,i)=>st.bld[i]);
+    h+=`<h2>Rumuskan konsepmu</h2><div class="fb ${st.pred===m.pred.a?"ok":"hint"}">Prediksimu: "${m.pred.o[st.pred]}". ${st.pred===m.pred.a?"Sesuai dengan hasil eksperimen.":"Hasil eksperimen menunjukkan: "+m.pred.o[m.pred.a]+"."}</div><br>`+
+    m.bld.map((b,i)=>{const ch=CH[cur+"_"+i]||[];return`<p><b>${b.tip}</b>. Klik keping untuk menyusun, klik lagi di kotak untuk membuang.</p><div class="eq ${st.bld[i]?"ok":""}">${b.lhs?`<span>${b.lhs}</span>`:""}${st.bld[i]?`<span>${st.bld[i]}</span>`:ch.map((t,j)=>`<button class="chip" data-rm="${i}" data-j="${j}">${t}</button>`).join("")}</div>${st.bld[i]?"":`<div class="bank">${b.tok.map(t=>`<button class="chip" data-add="${i}" data-t="${t}">${t}</button>`).join("")}</div><div class="row" style="margin-bottom:12px"><button class="btn ghost" data-chk="${i}">Periksa susunan</button>${RT["bmsg"+cur+i]?`<small class="m">${RT["bmsg"+cur+i]}</small>`:""}</div>`}`}).join("")+
+    (all?`<div class="concept"><div class="f">${m.concept.f}</div>${m.concept.t}</div><label for="concl"><b>Tulis kesimpulanmu dengan kata-katamu sendiri</b></label><textarea id="concl" placeholder="Dari eksperimen ini saya menemukan bahwa…">${esc(st.concl)}</textarea><br><br>${next("Lanjut ke tantangan")}`:"");}
+  if(view===5)h+=`<h2>Tantangan</h2><p>Tiga soal hitungan. Benar pada percobaan pertama bernilai 10, kedua 7, ketiga 4. Gunakan koma atau titik untuk desimal.</p>${quiz(m,st)}${st.done?finish(m):""}`;
+  $("#guide").innerHTML=h;
+}
+function quiz(m,st){
+  return m.qs.map((g,i)=>{const q=g(st.seed+i),a=st.q[i]||{w:0};
+    return`<div class="q"><p><b>Soal ${i+1}.</b> ${q.t}</p>${a.done?`<div class="fb ${a.p>2?"ok":"hint"}">${a.p>2?"Benar.":"Pelajari pembahasannya."} ${q.s} <span class="pts">(+${a.p} poin)</span></div>`:
+    `<div class="ans"><label for="q${i}">Jawaban</label><input id="q${i}" inputmode="decimal" autocomplete="off"><span>${q.u}</span><button class="btn" data-q="${i}">Periksa</button><span class="pts">Salah: ${a.w} kali</span></div>${a.w===1?`<div class="fb no">Belum tepat. Periksa lagi satuan dan hitunganmu.</div>`:a.w>=2?`<div class="fb hint">Petunjuk: ${q.h}</div>`:""}`}</div>`}).join("");
+}
+function finish(m){const p=pts(m.id),mx=maxPts(m.id),s=p>=.9*mx?3:p>=.6*mx?2:1;
+  return`<div class="finish"><div class="stars">${"★".repeat(s)}${"☆".repeat(3-s)}</div><h2>${m.id===FID?"Misi Akhir selesai":"Misi "+m.id+" selesai"}</h2><p>Skor ${p} dari ${mx}.</p><p>${m.id===FID?"":"Unduh laporan misi ini dengan tombol Unduh PDF misi ini, atau "}<a href="#catatan">buka Catatan Lab</a> untuk laporan semua misi.</p></div>`;}
+function renderLock(){
+  const prev=cur===6?"Misi 5":"Misi "+(cur-1);
+  V.innerHTML=`<div class="card lockbox"><h2>${cur===6?"Misi Akhir":"Misi "+cur+": "+M[cur-1].title} masih terkunci</h2><p>Selesaikan ${prev} terlebih dulu. Jika kamu sudah menyelesaikannya di laptop lain, masukkan kode yang kamu dapat di akhir ${prev}.</p><form id="unlock" class="row"><label for="kode">Kode</label><input id="kode" autocomplete="off" placeholder="contoh: ABCDE-123"><button class="btn">Buka misi</button></form>${msg?`<div class="fb no">${msg}</div>`:""}</div>`;
+}
+function renderFinal(){const st=ms(FID);st.seed=0;
+  V.innerHTML=`<div class="card guide" id="guide" style="max-width:820px;margin:0 auto"><h2>Misi Akhir: Menara Air Desa</h2><p>Kamu diminta memeriksa rancangan menara air untuk sebuah desa. Lima soal ini saling bersambung dan memakai debit, asas kontinuitas, persamaan Bernoulli, dan teorema Torricelli. Anggap air sebagai fluida ideal.</p>${quiz(FINAL,st)}${st.done?finish(FINAL):""}</div>`;}
+function report(){
+  let t=`LAPORAN VIRTUAL LAB FLUIDA DINAMIS\nKelas: ${S.kelas||"-"}\nKelompok: ${S.kelompok||"-"}\nAnggota: ${members().join(", ")||"-"}\n`;
+  M.forEach(m=>{const st=ms(m.id);t+=`\n== Misi ${m.id}: ${m.title} (${st.done?"selesai":"belum selesai"}, skor ${pts(m.id)}/30) ==\n`;
+    if(st.pred!==null)t+=`Prediksi: ${m.pred.o[st.pred]}\n`;
+    if(st.rows.length){t+=m.cols.map(c=>c.l).join(" | ")+"\n";st.rows.forEach(r=>t+=m.cols.map(c=>cell(r[c.k],c.k)).join(" | ")+"\n");}
+    if(st.bld.length&&m.bld.every((b,i)=>st.bld[i]))t+=`Rumus yang ditemukan: ${m.concept.f}\n`;
+    if(st.concl)t+=`Kesimpulan: ${st.concl}\n`;});
+  t+=`\n== Misi Akhir (skor ${pts(FID)}/50) ==\nSkor total: ${total()}/${TOT}\n`;return t;}
+function renderNotes(){
+  V.innerHTML=`<div class="note">${groupForm(false)}<div class="card"><h2>Catatan Lab</h2><p>Semua prediksi, data, rumus, dan kesimpulan kelompokmu terkumpul di sini. Unduh sebagai PDF untuk dikumpulkan, atau salin teksnya.</p><div class="row"><button class="btn" id="pdf">Unduh laporan PDF</button><button class="btn ghost" id="copy">Salin laporan</button><button class="btn ghost" id="reset">Hapus semua progres</button><small class="m" id="cmsg"></small></div></div>`+
+  M.map(m=>{const st=ms(m.id);return`<div class="card"><h2>Misi ${m.id}: ${m.title} <span class="tag ${st.done?"ok":""}">${st.done?"Selesai, "+pts(m.id)+"/30":"Tahap "+(st.stage+1)+" dari 6"}</span></h2>${st.pred!==null?`<p><b>Prediksi:</b> ${m.pred.o[st.pred]}</p>`:""}${st.rows.length?`<div class="tblwrap"><table><thead><tr>${m.cols.map(c=>`<th>${c.l}</th>`).join("")}</tr></thead><tbody>${st.rows.map(r=>`<tr>${m.cols.map(c=>`<td>${cell(r[c.k],c.k)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`:""}${st.bld.length&&m.bld.every((b,i)=>st.bld[i])?`<p><b>Rumus yang ditemukan:</b> ${m.concept.f}</p>`:""}${st.concl?`<p><b>Kesimpulan:</b> ${esc(st.concl)}</p>`:""}${st.pred===null?`<p class="empty">Belum ada catatan.</p>`:""}</div>`}).join("")+
+  `<div class="card"><h2>Misi Akhir <span class="tag ${ms(FID).done?"ok":""}">${ms(FID).done?"Selesai, ":""}${pts(FID)}/50</span></h2></div></div>`;
+}
+
+/* ---------- PDF ---------- */
+const ps=s=>String(s).replace(/₁/g,"1").replace(/₂/g,"2").replace(/ρ'/g,"rho' ").replace(/ρ/g,"rho ").replace(/√/g,"akar").replace(/Δ/g,"delta ").replace(/[−–]/g,"-").replace(/·/g,".").replace(/[^\x00-\xFF]/g,"");
+function makePdf(only){
+  const d=new window.jspdf.jsPDF({unit:"mm",format:"a4"}),L=15,Wd=180;let y=18;
+  const need=h=>{if(y+h>282){d.addPage();y=18;}};
+  const line=(s,sz=10,b=false)=>{d.setFont("helvetica",b?"bold":"normal");d.setFontSize(sz);d.splitTextToSize(ps(s),Wd).forEach(t=>{need(6);d.text(t,L,y);y+=sz*0.5;});};
+  const tbl=(head,rows)=>{const w=Wd/head.length;d.setFontSize(7.5);
+    const row=(cells,b)=>{need(6);d.setFont("helvetica",b?"bold":"normal");cells.forEach((c,i)=>d.text(ps(c),L+i*w+1,y));d.setDrawColor(170);d.line(L,y+1.5,L+Wd,y+1.5);y+=5;};
+    row(head,true);rows.forEach(r=>row(r,false));y+=2;};
+  line("Laporan Virtual Lab Fluida Dinamis",16,true);y+=2;
+  line("Kelas: "+(S.kelas||"-"));line("Kelompok: "+(S.kelompok||"-"));line("Anggota:");members().forEach((a,i)=>line("   "+(i+1)+". "+a));
+  line("Tanggal: "+new Date().toLocaleDateString("id-ID",{day:"numeric",month:"long",year:"numeric"}));
+  M.filter(m=>!only||m.id===only).forEach(m=>{const st=ms(m.id);y+=4;need(20);line(`Misi ${m.id}: ${m.title}`,12,true);y+=1;
+    line(st.done?`Status: selesai, skor ${pts(m.id)} dari 30`:"Status: belum selesai");
+    if(st.pred!==null)line("Prediksi: "+m.pred.o[st.pred]);
+    if(st.rows.length){y+=2;tbl(m.cols.map(c=>c.l),st.rows.map(r=>m.cols.map(c=>cell(r[c.k],c.k))));line("Keterangan: "+m.colNote,8);}
+    if(st.bld.length&&m.bld.every((b,i)=>st.bld[i]))line("Rumus yang ditemukan: "+m.concept.f,10,true);
+    if(st.concl)line("Kesimpulan: "+st.concl);});
+  if(!only){y+=4;line("Misi Akhir: skor "+pts(FID)+" dari 50",12,true);y+=1;line("Skor total: "+total()+" dari "+TOT,12,true);}
+  return d;}
+async function savePdf(only){
+  const say=t=>{const e=$(only?"#actmsg":"#cmsg");if(e)e.textContent=t;};
+  if(!window.jspdf){say("Pembuat PDF tidak termuat (perlu internet). Memakai dialog cetak: pilih Simpan sebagai PDF.");try{window.print();}catch(e){}return;}
+  let d;try{d=makePdf(only);}catch(e){say("Gagal membuat PDF. Gunakan Salin laporan.");return;}
+  const name="Laporan "+(only?"Misi "+only+" "+M[only-1].title:"Fluida Dinamis")+" "+(S.kelas||"")+" Kelompok "+(S.kelompok||"")+".pdf";
+  let dl=null;if(window.claude&&window.claude.use){say("Menyiapkan unduhan…");try{dl=await window.claude.use("downloads");}catch(e){}}
+  if(dl){try{await dl.save({filename:name,data:d.output("blob")});say("Laporan PDF tersimpan.");}catch(e){say(e&&e.code==="declined"?"Unduhan dibatalkan.":"Unduhan tidak tersedia di tampilan ini. Gunakan Salin laporan.");}}
+  else{try{d.save(name);say("Laporan PDF diunduh.");}catch(e){say("Unduhan tidak tersedia. Gunakan Salin laporan.");}}
+}
+
+/* ---------- Interaksi ---------- */
+function checkQ(i,defs,id){
+  const st=ms(id),q=defs[i](st.seed+i),inp=$("#q"+i),raw=String(inp.value).trim().replace(/\s/g,"");
+  const xs=raw.includes(",")?[parseFloat(raw.replace(/\./g,"").replace(",","."))]:[parseFloat(raw),parseFloat(raw.replace(/\./g,""))];
+  if(isNaN(xs[0])){inp.focus();return;}
+  const hit=xs.some(x=>Math.abs(x-q.a)<=Math.max(.02*Math.abs(q.a),.01));
+  const a=st.q[i]||(st.q[i]={w:0});
+  if(hit){a.done=true;a.p=[10,7,4][a.w]||4;}
+  else{a.w++;if(a.w>=3){a.done=true;a.p=2;}}
+  if(defs.every((d,j)=>st.q[j]&&st.q[j].done))st.done=true;
+  save();render();
+}
+V.addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;const d=b.dataset;
+  if(b.id==="gstart"){msg=groupOk()?"":"Isi kelas dan minimal 3 nama anggota.";render();return;}
+  if(cur===NID){
+    if(b.id==="pdf"){savePdf();return;}
+    if(b.id==="copy"){const t=report();(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>$("#cmsg").textContent="Laporan tersalin. Tempel di tempat pengumpulan tugas.").catch(()=>{$("#cmsg").textContent="Salin otomatis gagal. Blok teks di bawah lalu salin manual.";const ta=document.createElement("textarea");ta.value=t;ta.style.minHeight="240px";b.closest(".card").appendChild(ta);ta.select();});}
+    if(b.id==="reset"){if(b.dataset.sure){S.m={};save();P={};RT={};location.hash="misi-1";route();}else{b.dataset.sure=1;b.textContent="Yakin? Klik sekali lagi untuk menghapus";}}
+    return;}
+  if(cur===FID){if(d.q!==undefined)checkQ(+d.q,FINAL.qs,FID);return;}
+  if(cur>NM)return;
+  if(b.id==="pdfm"){savePdf(cur);return;}
+  const m=M[cur-1],st=ms(cur);msg="";
+  if(b.id==="act"){if(cur===1){RT[1].run=true;RT[1].t=0;RT[1].fill=0;}else addRow(calc[cur](P[cur]));return;}
+  if(b.id==="clr"){st.rows=[];if(cur===1)RT[1]={t:0,fill:0,pts:RT[1].pts};save();render();return;}
+  if(d.go!==undefined){view=+d.go;render();return;}
+  if(d.pred!==undefined){st.pred=+d.pred;save();render();return;}
+  if(d.pat!==undefined){st.pat[+d.pat]=(+d.o===m.pat[+d.pat].a)?true:+d.o;save();render();return;}
+  if(d.add!==undefined){(CH[cur+"_"+d.add]=CH[cur+"_"+d.add]||[]).push(d.t);render();return;}
+  if(d.rm!==undefined){CH[cur+"_"+d.rm].splice(+d.j,1);render();return;}
+  if(d.chk!==undefined){const i=+d.chk,ch=CH[cur+"_"+i]||[];if(m.bld[i].ok(ch)){st.bld[i]=ch.join(" ");RT["bmsg"+cur+i]="";save();}else RT["bmsg"+cur+i]=ch.length?"Belum sesuai dengan pola datamu. Lihat lagi jawabanmu di tahap Temukan Pola.":"Susun dulu keping-kepingnya.";render();return;}
+  if(d.q!==undefined){checkQ(+d.q,m.qs,cur);return;}
+  if(d.next!==undefined){
+    if(view===4&&st.concl.trim().length<15){msg="Tulis kesimpulanmu dulu, minimal satu kalimat.";render();return;}
+    view=Math.min(5,view+1);if(view>st.stage)st.stage=view;save();render();}
+});
+V.addEventListener("input",e=>{
+  const t=e.target;
+  if(t.id.startsWith("g_")){const k=t.id.slice(2);if(/^a\d$/.test(k))S.anggota[+k[1]]=t.value;else S[k]=t.value;save();hdr();return;}
+  if(t.id==="concl"){ms(cur).concl=t.value;save();return;}
+  if(t.dataset.k&&cur<=NM){const p=P[cur];p[t.dataset.k]=+t.value;
+    if(cur===6&&p.A2>p.A1-2){p.A2=p.A1-2;$("#c_A2").value=p.A2;}
+    if(cur===5){const mx=Math.round((p.H-0.1)*20)/20;if(p.y>mx){p.y=mx;$("#c_y").value=mx;}}
+    if(cur===1)RT[1]={t:0,fill:0,pts:RT[1].pts};
+    M[cur-1].ctrl.forEach(x=>{$("#v_"+x.k).textContent=lab(x,p[x.k]);});}
+});
+V.addEventListener("submit",e=>{e.preventDefault();
+  if(e.target.id==="unlock"){const v=$("#kode").value.trim().toUpperCase();if(v===M[cur-2].code){ms(cur).open=true;save();route();}else{msg="Kode belum cocok. Periksa lagi kode dari akhir misi sebelumnya.";render();}}});
+V.addEventListener("keydown",e=>{if(e.key==="Enter"&&/^q\d$/.test(e.target.id)){const b=e.target.parentElement.querySelector("[data-q]");if(b)b.click();}});
+window.addEventListener("hashchange",()=>{V.innerHTML="";route();});
+route();requestAnimationFrame(frame);
+</script>
+</body>
+</html>
